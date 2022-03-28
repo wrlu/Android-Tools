@@ -42,6 +42,7 @@ def select_adb_devices():
     print('Select an adb device:')
     for device in devices:
         print(str(i) + ' => ' + device['id'] + '\t' + device['status'])
+        i = i + 1
     select = int(input())
     if select > len(devices):
         print('[Error] Out of range.')
