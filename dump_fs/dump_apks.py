@@ -57,5 +57,6 @@ packages = pm_list_packages(serial_id)
 os.mkdir('packages')
 index_file = open('packages/package_index.csv', 'w')
 for package in packages:
-    index_file.write(package['package']+','+package['path'])
+    index_file.write(package['package']+','+package['path']+'\n')
     dump_apk_folder(serial_id, package)
+index_file.close()
