@@ -29,7 +29,7 @@ def pm_list_packages(serial_id):
         line = line.strip().strip('package:')
         if '=' in line:
             path = line[:line.rindex('=')]
-            package_name = line[line.rindex('='):]
+            package_name = line[line.rindex('=') + 1:]
             packages.append({'package': package_name, 'path': path})
     return packages
 
