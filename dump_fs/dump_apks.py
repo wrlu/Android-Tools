@@ -28,8 +28,8 @@ def pm_list_packages(serial_id):
     for line in lines:
         line = line.strip().strip('package:')
         if '=' in line:
-            path = line.split('=')[0]
-            package_name = line.split('=')[1]
+            path = line[:line.rindex('=')]
+            package_name = line[line.rindex('='):]
             packages.append({'package': package_name, 'path': path})
     return packages
 
@@ -59,4 +59,5 @@ index_file = open('packages/package_index.csv', 'w')
 for package in packages:
     index_file.write(package['package']+','+package['path']+'\n')
     dump_apk_folder(serial_id, package)
+    index_file.flush()
 index_file.close()
