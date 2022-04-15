@@ -5,7 +5,7 @@ import re
 def run_command(cmds, cwd='.'):
     return subprocess.Popen(cmds, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, cwd=cwd).communicate()[0]
 
-def cmd_adb_devces():
+def cmd_adb_devices():
     return run_command(['adb', 'devices'])
 
 def cmd_getprop_ro_build_fingerprint(serial_id):
@@ -30,7 +30,7 @@ def cmd_pm_dump_privileged(serial_id, package_name):
     return run_command(['adb', '-s', serial_id, 'shell', 'pm', 'dump', package_name, '|', 'grep', 'PRIVILEGED'])
 
 def adb_devices():
-    output = cmd_adb_devces().decode('ascii')
+    output = cmd_adb_devices().decode('ascii')
     lines = output.split('\n')
     device_serial = []
     for line in lines:
