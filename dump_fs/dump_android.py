@@ -5,29 +5,32 @@ import re
 def run_command(cmds, cwd='.'):
     return subprocess.Popen(cmds, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, cwd=cwd).communicate()[0]
 
+def cmd_adb_devces():
+    return run_command(['adb', 'devices'])
+
 def cmd_getprop_ro_build_fingerprint(serial_id):
-    return run_command(['adb', '-s', serial_id, 'shell', 'getprop', 'ro.build.fingerprint']).decode('ascii')
+    return run_command(['adb', '-s', serial_id, 'shell', 'getprop', 'ro.build.fingerprint'])
 
 def cmd_pm_list_packages(serial_id):
-    return run_command(['adb', '-s', serial_id, 'shell', 'pm', 'list', 'packages', '-f', '-U']).decode('ascii')
+    return run_command(['adb', '-s', serial_id, 'shell', 'pm', 'list', 'packages', '-f', '-U'])
 
 def cmd_service_list(serial_id):
-    return run_command(['adb', '-s', serial_id, 'shell', 'service', 'list']).decode('ascii')
+    return run_command(['adb', '-s', serial_id, 'shell', 'service', 'list'])
 
 def cmd_lshal(serial_id):
-    return run_command(['adb', '-s', serial_id, 'shell', 'lshal']).decode('ascii')
+    return run_command(['adb', '-s', serial_id, 'shell', 'lshal'])
 
 def cmd_netstat_nlptu(serial_id):
-    return run_command(['adb', '-s', serial_id, 'shell', 'netstat', '-nlptu']).decode('ascii')
+    return run_command(['adb', '-s', serial_id, 'shell', 'netstat', '-nlptu'])
 
 def cmd_pm_dump_signatures(serial_id, package_name):
-    return run_command(['adb', '-s', serial_id, 'shell', 'pm', 'dump', package_name, '|', 'grep', 'signatures:']).decode('ascii')
+    return run_command(['adb', '-s', serial_id, 'shell', 'pm', 'dump', package_name, '|', 'grep', 'signatures:'])
 
 def cmd_pm_dump_privileged(serial_id, package_name):
-    return run_command(['adb', '-s', serial_id, 'shell', 'pm', 'dump', package_name, '|', 'grep', 'PRIVILEGED']).decode('ascii')
+    return run_command(['adb', '-s', serial_id, 'shell', 'pm', 'dump', package_name, '|', 'grep', 'PRIVILEGED'])
 
 def adb_devices():
-    output = run_command(['adb', 'devices']).decode('ascii')
+    output = cmd_adb_devces().decode('ascii')
     lines = output.split('\n')
     device_serial = []
     for line in lines:
@@ -35,7 +38,7 @@ def adb_devices():
         if '\t' in line:
             id = line.split('\t')[0]
             status = line.split('\t')[1]
-            build_fingerprint = cmd_getprop_ro_build_fingerprint(id).strip()
+            build_fingerprint = cmd_getprop_ro_build_fingerprint(id).decode('ascii').strip()
             device_serial.append({'id': id, 'status': status, 'build_fingerprint': build_fingerprint})
     return device_serial
 
@@ -55,11 +58,11 @@ def select_adb_devices():
     return devices[select - 1]['id']
 
 def is_privileged(serial_id, package_name):
-    dump_output = cmd_pm_dump_privileged(serial_id, package_name)
+    dump_output = cmd_pm_dump_privileged(serial_id, package_name).decode('ascii')
     return 'PRIVILEGED' in dump_output
 
 def get_package_signature(serial_id, package_name):
-    dump_output = cmd_pm_dump_signatures(serial_id, package_name)
+    dump_output = cmd_pm_dump_signatures(serial_id, package_name).decode('ascii')
     pattern = r'signatures:\[([0-9a-fA-F, ]*)\]\,'
     search_result = re.search(pattern, dump_output)
     signature = search_result.group(1)
@@ -81,7 +84,7 @@ def get_package_selinux_label(serial_id, package, platform_signature):
 
 def get_packages(serial_id):
     platform_signature = get_platform_signature(serial_id)
-    pm_list_output = cmd_pm_list_packages(serial_id)
+    pm_list_output = cmd_pm_list_packages(serial_id).decode('ascii')
     lines = pm_list_output.split('\n')
     packages = []
     for line in lines:
@@ -140,16 +143,16 @@ os.mkdir('selinux')
 dump_selinux_policy(serial_id)
 
 print('[Task 5/6] Run service list cmd')
-service_list_file = open('service_list.txt', 'w')
+service_list_file = open('service_list.txt', 'wb')
 service_list_file.write(cmd_service_list(serial_id))
 service_list_file.close()
 
 print('[Task 6/7] Run lshal cmd')
-lshal_file = open('lshal.txt', 'w')
+lshal_file = open('lshal.txt', 'wb')
 lshal_file.write(cmd_lshal(serial_id))
 lshal_file.close()
 
 print('[Task 7/7] Run netstat -nlptu cmd')
-netstat_file = open('netstat.txt', 'w')
+netstat_file = open('netstat.txt', 'wb')
 netstat_file.write(cmd_netstat_nlptu(serial_id))
 netstat_file.close()
