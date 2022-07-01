@@ -1,4 +1,5 @@
 import os
+import sys
 import subprocess
 import re
 
@@ -57,9 +58,8 @@ def select_adb_devices():
         print('[Warning] Device not avaliable, status is: ' + devices[select - 1]['status'])
     return devices[select - 1]['id']
 
-def is_privileged(serial_id, package_name):
-    dump_output = cmd_pm_dump_privileged(serial_id, package_name).decode('ascii')
-    return 'PRIVILEGED' in dump_output
+def is_privileged(serial_id, package):
+    return 'priv-app' in package['path']
 
 def get_package_signature(serial_id, package_name):
     dump_output = cmd_pm_dump_signatures(serial_id, package_name).decode('ascii')
@@ -74,8 +74,8 @@ def get_platform_signature(serial_id):
 def get_package_selinux_label(serial_id, package, platform_signature):
     if int(package['uid']) == 1000:
         return 'system_app'
-    is_priv = is_privileged(serial_id, package['package_name'])
     is_platform = platform_signature in get_package_signature(serial_id, package['package_name'])
+    is_priv = is_privileged(serial_id, package)
     if is_platform:
         return 'platform_app'
     if is_priv:
@@ -87,6 +87,8 @@ def get_packages(serial_id):
     pm_list_output = cmd_pm_list_packages(serial_id).decode('ascii')
     lines = pm_list_output.split('\n')
     packages = []
+    total = len(lines)
+    i = 0
     for line in lines:
         line = line.strip().strip('package:')
         if '=' in line and ' ' in line:
@@ -99,60 +101,94 @@ def get_packages(serial_id):
             package_info['uid'] = uid
             package_info['label'] = get_package_selinux_label(serial_id, package_info, platform_signature)
             packages.append(package_info)
-            print(package_name)
+            show_progress(i, total, 'Collect package info for ' + package_name)
+        i = i + 1
+            
     return packages
 
 def dump_apk_folder(serial_id, package):
     run_command(['adb', '-s', serial_id, 'pull', package['path'][:package['path'].rindex('/')], package['package_name']], cwd='packages')
 
 def dump_system_lib(serial_id):
-    run_command(['adb', '-s', serial_id, 'pull', '/system/lib64/'], cwd='libs')
-    run_command(['adb', '-s', serial_id, 'pull', '/system/lib/'], cwd='libs')
+    run_command(['adb', '-s', serial_id, 'pull', '/system/lib64/'], cwd='system_libs')
+    run_command(['adb', '-s', serial_id, 'pull', '/system/lib/'], cwd='system_libs')
+    
+def dump_vendor_lib(serial_id):
+    run_command(['adb', '-s', serial_id, 'pull', '/vendor/lib64/'], cwd='vendor_libs')
+    run_command(['adb', '-s', serial_id, 'pull', '/vendor/lib/'], cwd='vendor_libs')
 
 def dump_system_bin(serial_id):
-    run_command(['adb', '-s', serial_id, 'pull', '/system/bin/'], cwd='binaries')
+    run_command(['adb', '-s', serial_id, 'pull', '/system/bin/'], cwd='system_binaries')
+
+def dump_vendor_bin(serial_id):
+    run_command(['adb', '-s', serial_id, 'pull', '/vendor/bin/'], cwd='vendor_binaries')
 
 def dump_selinux_policy(serial_id):
     run_command(['adb', '-s', serial_id, 'pull', '/sys/fs/selinux/policy'], cwd='selinux')
 
+def show_progress(now, total, msg):
+    if total == 0:
+        return
+    p = (now * 100) // total
+    print('<' + str(p) + '%' + '>' + msg)
 
-serial_id = select_adb_devices()
 
-print('[Task 1/7] Dump Android framework & Apps')
-packages = get_packages(serial_id)
-os.mkdir('packages')
-package_index_file = open('package_index.csv', 'w')
-package_index_file.write('package_name,path,uid,label\n')
-for package in packages:
-    package_index_file.write(package['package_name']+','+package['path']+','+package['uid']+','+package['label']+'\n')
-    package_index_file.flush()
-    dump_apk_folder(serial_id, package)
+def main():
+    is_info_only = False
+    if len(sys.argv) == 2 and sys.argv[1] == '--info-only':
+        is_info_only = True
+        print('--info-only detected: do not dump apks, libraries and binaries.')
+    serial_id = select_adb_devices()
+
+    print('[Task 1] Dump Android framework & Apps')
+
+    packages = get_packages(serial_id)
+    os.mkdir('packages')
+    package_index_file = open('package_index.csv', 'w')
+    package_index_file.write('package_name,path,uid,label\n')
+    total = len(packages)
+    i = 0
+    for package in packages:
+        package_index_file.write(package['package_name']+','+package['path']+','+package['uid']+','+package['label']+'\n')
+        package_index_file.flush()
+        if not is_info_only:
+            dump_apk_folder(serial_id, package)
+            show_progress(i, total, 'Dump package binaries for ' + package['package_name'])
+        i = i + 1
     
-package_index_file.close()
+    package_index_file.close()
 
-print('[Task 2/7] Dump libraries')
-os.mkdir('libs')
-dump_system_lib(serial_id)
+    print('[Task 2] Dump SELinux policy')
+    os.mkdir('selinux')
+    dump_selinux_policy(serial_id)
 
-print('[Task 3/7] Dump binaries')
-os.mkdir('binaries')
-dump_system_bin(serial_id)
+    print('[Task 3] Run service list cmd')
+    service_list_file = open('service_list.txt', 'wb')
+    service_list_file.write(cmd_service_list(serial_id))
+    service_list_file.close()
 
-print('[Task 4/7] Dump SELinux policy')
-os.mkdir('selinux')
-dump_selinux_policy(serial_id)
+    print('[Task 4] Run lshal cmd')
+    lshal_file = open('lshal.txt', 'wb')
+    lshal_file.write(cmd_lshal(serial_id))
+    lshal_file.close()
 
-print('[Task 5/6] Run service list cmd')
-service_list_file = open('service_list.txt', 'wb')
-service_list_file.write(cmd_service_list(serial_id))
-service_list_file.close()
+    print('[Task 5] Run netstat -nlptu cmd')
+    netstat_file = open('netstat.txt', 'wb')
+    netstat_file.write(cmd_netstat_nlptu(serial_id))
+    netstat_file.close()
 
-print('[Task 6/7] Run lshal cmd')
-lshal_file = open('lshal.txt', 'wb')
-lshal_file.write(cmd_lshal(serial_id))
-lshal_file.close()
+    if not is_info_only:
+        print('[Task 6] Dump libraries')
+        os.mkdir('system_libs')
+        dump_system_lib(serial_id)
+        os.mkdir('vendor_libs')
+        dump_vendor_lib(serial_id)
 
-print('[Task 7/7] Run netstat -nlptu cmd')
-netstat_file = open('netstat.txt', 'wb')
-netstat_file.write(cmd_netstat_nlptu(serial_id))
-netstat_file.close()
+        print('[Task 7] Dump binaries')
+        os.mkdir('system_binaries')
+        dump_system_bin(serial_id)
+        os.mkdir('vendor_binaries')
+        dump_vendor_bin(serial_id)
+
+
+main()
