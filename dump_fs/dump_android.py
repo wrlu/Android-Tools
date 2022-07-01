@@ -3,6 +3,27 @@ import sys
 import subprocess
 import re
 
+class Log:
+    @staticmethod
+    def send(msg):
+        print('[Send] ' + msg)
+    
+    @staticmethod
+    def print(msg):
+        print(msg)
+
+    @staticmethod
+    def info(msg):
+        print('[Info] ' + msg)
+
+    @staticmethod
+    def warn(msg):
+        print('\033[0;33m[Warning] ' + msg + '\033[0m')
+
+    @staticmethod
+    def error(msg):
+        print('\033[0;31m[Error] ' + msg + '\033[0m')
+
 def run_command(cmds, cwd='.'):
     return subprocess.Popen(cmds, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, cwd=cwd).communicate()[0]
 
@@ -46,16 +67,16 @@ def adb_devices():
 def select_adb_devices():
     devices = adb_devices()
     i = 1
-    print('Select an adb device:')
+    Log.print('Select an adb device:')
     for device in devices:
-        print(str(i) + ' => ' + device['id'] + '\t' + device['status'] + '\t' + device['build_fingerprint'])
+        Log.print(str(i) + ' => ' + device['id'] + '\t' + device['status'] + '\t' + device['build_fingerprint'])
         i = i + 1
     select = int(input())
     if select > len(devices):
-        print('[Error] Out of range.')
+        Log.error('Out of range.')
         return None
     if devices[select - 1]['status'] != 'device':
-        print('[Warning] Device not avaliable, status is: ' + devices[select - 1]['status'])
+        Log.warn('Device not avaliable, status is: ' + devices[select - 1]['status'])
     return devices[select - 1]['id']
 
 def is_privileged(serial_id, package):
@@ -130,17 +151,17 @@ def show_progress(now, total, msg):
     if total == 0:
         return
     p = (now * 100) // total
-    print('<' + str(p) + '%' + '>' + msg)
+    Log.info(' {' + str(p) + '%' + '} ' + msg)
 
 
 def main():
     is_info_only = False
     if len(sys.argv) == 2 and sys.argv[1] == '--info-only':
         is_info_only = True
-        print('--info-only detected: do not dump apks, libraries and binaries.')
+        Log.info('--info-only detected: do not dump apks, libraries and binaries.')
     serial_id = select_adb_devices()
 
-    print('[Task 1] Dump Android framework & Apps')
+    Log.info('[Task 1] Dump Android framework & Apps')
 
     packages = get_packages(serial_id)
     os.mkdir('packages')
@@ -158,33 +179,33 @@ def main():
     
     package_index_file.close()
 
-    print('[Task 2] Dump SELinux policy')
+    Log.info('[Task 2] Dump SELinux policy')
     os.mkdir('selinux')
     dump_selinux_policy(serial_id)
 
-    print('[Task 3] Run service list cmd')
+    Log.info('[Task 3] Run service list cmd')
     service_list_file = open('service_list.txt', 'wb')
     service_list_file.write(cmd_service_list(serial_id))
     service_list_file.close()
 
-    print('[Task 4] Run lshal cmd')
+    Log.info('[Task 4] Run lshal cmd')
     lshal_file = open('lshal.txt', 'wb')
     lshal_file.write(cmd_lshal(serial_id))
     lshal_file.close()
 
-    print('[Task 5] Run netstat -nlptu cmd')
+    Log.info('[Task 5] Run netstat -nlptu cmd')
     netstat_file = open('netstat.txt', 'wb')
     netstat_file.write(cmd_netstat_nlptu(serial_id))
     netstat_file.close()
 
     if not is_info_only:
-        print('[Task 6] Dump libraries')
+        Log.info('[Task 6] Dump libraries')
         os.mkdir('system_libs')
         dump_system_lib(serial_id)
         os.mkdir('vendor_libs')
         dump_vendor_lib(serial_id)
 
-        print('[Task 7] Dump binaries')
+        Log.info('[Task 7] Dump binaries')
         os.mkdir('system_binaries')
         dump_system_bin(serial_id)
         os.mkdir('vendor_binaries')
