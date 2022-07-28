@@ -147,6 +147,10 @@ def dump_vendor_bin(serial_id):
 def dump_selinux_policy(serial_id):
     run_command(['adb', '-s', serial_id, 'pull', '/sys/fs/selinux/policy'], cwd='selinux')
 
+def dump_seccomp_policy(serial_id):
+    run_command(['adb', '-s', serial_id, 'pull', '/system/etc/seccomp_policy'], cwd='seccomp')
+    run_command(['adb', '-s', serial_id, 'pull', '/vendor/etc/seccomp_policy'], cwd='seccomp')
+
 def show_progress(now, total, msg):
     if total == 0:
         return
@@ -179,9 +183,12 @@ def main():
     
     package_index_file.close()
 
-    Log.info('[Task 2] Dump SELinux policy')
+    Log.info('[Task 2] Dump SELinux & seccomp policy')
     os.mkdir('selinux')
     dump_selinux_policy(serial_id)
+    os.mkdir('seccomp')
+    dump_seccomp_policy(serial_id)
+
 
     Log.info('[Task 3] Run service list cmd')
     service_list_file = open('service_list.txt', 'wb')
