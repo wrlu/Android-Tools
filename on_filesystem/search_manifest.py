@@ -40,13 +40,66 @@ def is_activity_browsable(activity):
     if is_component_exported(activity):
         intent_filters = get_component_intent_filters(activity)
         for intent_filter in intent_filters:
-            actions = intent_filter.getElementsByTagName('action')
-            data = intent_filter.getElementsByTagName('data')
             categories = intent_filter.getElementsByTagName('category')
             for category in categories:
                 if is_browsable_category(category):
                     return True
     return False
+
+def get_activity_pattern(activity):
+    intent_filters = get_component_intent_filters(activity)
+    patterns = []
+    for intent_filter in intent_filters:
+        actions = intent_filter.getElementsByTagName('action')
+        action_pattern = 'action=[ '
+        for action in actions:
+            action_name = get_android_name(action)
+            action_pattern = action_pattern + action_name + ' '
+        action_pattern = action_pattern + ']'
+
+        data = intent_filter.getElementsByTagName('data')
+        scheme = ''
+        host = ''
+        port = ''
+        path = ''
+        pathPrefix = ''
+        pathPattern = ''
+        mimeType = ''
+        
+        for per_data in data:
+            scheme = per_data.getAttribute('android:scheme')
+            host = per_data.getAttribute('android:host')
+            port = per_data.getAttribute('android:port')
+            path = per_data.getAttribute('android:path')
+            pathPrefix = per_data.getAttribute('android:pathPrefix')
+            pathPattern = per_data.getAttribute('android:pathPattern')
+            mimeType = per_data.getAttribute('android:mimeType')
+        
+        if scheme == '':
+            scheme = '*'
+        if host == '':
+            host = '*'
+        if port == '':
+            port = '*'
+        if mimeType == '':
+            mimeType = '*'
+        
+        has_path = False
+        if path != '':
+            data_pattern = f'data=[{scheme}://{host}:{port}/{path} | mimeType={mimeType}]'
+            has_path = True
+        if pathPrefix != '':
+            data_pattern = f'data=[{scheme}://{host}:{port}/{pathPrefix} | mimeType={mimeType}]'
+            has_path = True
+        if pathPattern != '':
+            data_pattern = f'data=[{scheme}://{host}:{port}/{pathPattern} | mimeType={mimeType}]'
+            has_path = True
+        if has_path is False:
+            data_pattern = f'data=[{scheme}://{host}:{port} | mimeType={mimeType}]'
+        
+        pattern = f'{action_pattern}, {data_pattern}'
+        patterns.append(pattern)
+    return patterns
 
 def get_browsable_activities(xml_content):
     manifest_file_content = minidom.parse(xml_content)
@@ -62,7 +115,10 @@ def get_browsable_activities(xml_content):
         if is_activity_browsable(activity):
             full_activity_name = package_name + '/' + get_android_name(activity)
             print(full_activity_name)
-            browsable_activities.append(full_activity_name)
+            uri_patterns = get_activity_pattern(activity)
+            for uri_pattern in uri_patterns:
+                print('\t' + uri_pattern)
+            browsable_activities.append({'name': full_activity_name, 'patterns': uri_patterns})
     
     return browsable_activities
 
@@ -86,5 +142,6 @@ def scan_dir(packages_dir):
     return browsable_activities
 
 if len(sys.argv) != 2:
-    print('search_manifest.py: Missing parameters, usage: python search_manifest.py dir')    
+    print('search_manifest.py: Missing parameters, usage: python search_manifest.py dir')
+    sys.exit(1)
 scan_dir(sys.argv[1])
