@@ -86,16 +86,16 @@ def get_activity_pattern(activity):
         
         has_path = False
         if path != '':
-            data_pattern = f'data=[{scheme}://{host}:{port}/{path} | mimeType={mimeType}]'
+            data_pattern = f'data=[{scheme}://{host}:{port}{path} | mimeType={mimeType}]'
             has_path = True
         if pathPrefix != '':
-            data_pattern = f'data=[{scheme}://{host}:{port}/{pathPrefix} | mimeType={mimeType}]'
+            data_pattern = f'data=[{scheme}://{host}:{port}{pathPrefix} | mimeType={mimeType}]'
             has_path = True
         if pathPattern != '':
             data_pattern = f'data=[{scheme}://{host}:{port}/{pathPattern} | mimeType={mimeType}]'
             has_path = True
         if has_path is False:
-            data_pattern = f'data=[{scheme}://{host}:{port} | mimeType={mimeType}]'
+            data_pattern = f'data=[{scheme}://{host}:{port}/* | mimeType={mimeType}]'
         
         pattern = f'{action_pattern}, {data_pattern}'
         patterns.append(pattern)
