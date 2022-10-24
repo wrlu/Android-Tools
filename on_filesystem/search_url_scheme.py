@@ -25,10 +25,10 @@ def get_component_intent_filters(component):
     return component.getElementsByTagName('intent-filter')
 
 def is_component_exported(component):
-    exported_attr = component.getAttribute('android:exported')
-    if exported_attr == 'true':
+    exported = component.getAttribute('android:exported')
+    if exported == 'true':
         return True
-    elif exported_attr =='false':
+    elif exported =='false':
         return False
     else:
         return len(get_component_intent_filters(component)) != 0
@@ -81,21 +81,25 @@ def get_activity_pattern(activity):
             host = '*'
         if port == '':
             port = '*'
+            full_host = f'{scheme}://{host}'
+        else:
+            full_host = f'{scheme}://{host}:{port}'
+        
         if mimeType == '':
             mimeType = '*'
         
         has_path = False
         if path != '':
-            data_pattern = f'data=[{scheme}://{host}:{port}{path} | mimeType={mimeType}]'
+            data_pattern = f'data=[{full_host}{path} | mimeType={mimeType}]'
             has_path = True
         if pathPrefix != '':
-            data_pattern = f'data=[{scheme}://{host}:{port}{pathPrefix} | mimeType={mimeType}]'
+            data_pattern = f'data=[{full_host}{pathPrefix} | mimeType={mimeType}]'
             has_path = True
         if pathPattern != '':
-            data_pattern = f'data=[{scheme}://{host}:{port}/{pathPattern} | mimeType={mimeType}]'
+            data_pattern = f'data=[{full_host}/{pathPattern} | mimeType={mimeType}]'
             has_path = True
         if has_path is False:
-            data_pattern = f'data=[{scheme}://{host}:{port}/* | mimeType={mimeType}]'
+            data_pattern = f'data=[{scheme}://{host}:{port} | mimeType={mimeType}]'
         
         pattern = f'{action_pattern}, {data_pattern}'
         patterns.append(pattern)
@@ -139,9 +143,9 @@ def scan_dir(packages_dir):
                         except Exception as e:
                             print('Scan file '+ file + ' error, ' + str(e))
                             continue
-    return browsable_activities
+    print(browsable_activities)
 
 if len(sys.argv) != 2:
-    print('search_manifest.py: Missing parameters, usage: python search_manifest.py dir')
+    print('search_url_scheme.py: Missing parameters, usage: python search_url_scheme.py dir')
     sys.exit(1)
 scan_dir(sys.argv[1])
