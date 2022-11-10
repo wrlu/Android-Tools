@@ -69,22 +69,54 @@ def cmd_whoami(serial_id):
 def cmd_su_whoami(serial_id):
     return run_command(['adb', '-s', serial_id, 'shell', 'su', '-c', 'whoami'])
 
+def cmd_mkdir_sdcard_dump(serial_id):
+    run_command(['adb', '-s', serial_id, 'shell', 'mkdir', '/sdcard/.dump/'])
+
+def cmd_mkdir_sdcard_dump_system(serial_id):
+    run_command(['adb', '-s', serial_id, 'shell', 'mkdir', '/sdcard/.dump/system/'])
+
+def cmd_mkdir_sdcard_dump_vendor(serial_id):
+    run_command(['adb', '-s', serial_id, 'shell', 'mkdir', '/sdcard/.dump/vendor/'])
+
+def cmd_rm_sdcard_dump(serial_id):
+    run_command(['adb', '-s', serial_id, 'shell', 'rm', '-rf', '"/sdcard/.dump"'])
+
 def dump_apk_folder(serial_id, package):
     run_command(['adb', '-s', serial_id, 'pull', package['path'][:package['path'].rindex('/')], package['package_name']], cwd='packages')
 
-def dump_system_lib(serial_id):
-    run_command(['adb', '-s', serial_id, 'pull', '/system/lib64/'], cwd='system_libs')
-    run_command(['adb', '-s', serial_id, 'pull', '/system/lib/'], cwd='system_libs')
+def dump_system_lib(serial_id, su_exec):
+    if su_exec:
+        run_command(['adb', '-s', serial_id, 'shell', 'su', '-c', 'cp', '-r', '/system/lib64/', '/sdcard/.dump/system/'])
+        run_command(['adb', '-s', serial_id, 'shell', 'su', '-c', 'cp', '-r', '/system/lib/', '/sdcard/.dump/system/'])
+        run_command(['adb', '-s', serial_id, 'pull', '/sdcard/.dump/system/lib64/'], cwd='system_libs')
+        run_command(['adb', '-s', serial_id, 'pull', '/sdcard/.dump/system/lib/'], cwd='system_libs')
+    else:
+        run_command(['adb', '-s', serial_id, 'pull', '/system/lib64/'], cwd='system_libs')
+        run_command(['adb', '-s', serial_id, 'pull', '/system/lib/'], cwd='system_libs')
     
-def dump_vendor_lib(serial_id):
-    run_command(['adb', '-s', serial_id, 'pull', '/vendor/lib64/'], cwd='vendor_libs')
-    run_command(['adb', '-s', serial_id, 'pull', '/vendor/lib/'], cwd='vendor_libs')
+def dump_vendor_lib(serial_id, su_exec):
+    if su_exec:
+        run_command(['adb', '-s', serial_id, 'shell', 'su', '-c', 'cp', '-r', '/vendor/lib64/', '/sdcard/.dump/vendor/'])
+        run_command(['adb', '-s', serial_id, 'shell', 'su', '-c', 'cp', '-r', '/vendor/lib/', '/sdcard/.dump/vendor/'])
+        run_command(['adb', '-s', serial_id, 'pull', '/sdcard/.dump/vendor/lib64/'], cwd='vendor_libs')
+        run_command(['adb', '-s', serial_id, 'pull', '/sdcard/.dump/vendor/lib/'], cwd='vendor_libs')
+    else:
+        run_command(['adb', '-s', serial_id, 'pull', '/vendor/lib64/'], cwd='vendor_libs')
+        run_command(['adb', '-s', serial_id, 'pull', '/vendor/lib/'], cwd='vendor_libs')
 
-def dump_system_bin(serial_id):
-    run_command(['adb', '-s', serial_id, 'pull', '/system/bin/'], cwd='system_binaries')
+def dump_system_bin(serial_id, su_exec):
+    if su_exec:
+        run_command(['adb', '-s', serial_id, 'shell', 'su', '-c', 'cp', '-r', '/system/bin/', '/sdcard/.dump/system/'])
+        run_command(['adb', '-s', serial_id, 'pull', '/sdcard/.dump/system/bin/'], cwd='system_binaries')
+    else:
+        run_command(['adb', '-s', serial_id, 'pull', '/system/bin/'], cwd='system_binaries')
 
-def dump_vendor_bin(serial_id):
-    run_command(['adb', '-s', serial_id, 'pull', '/vendor/bin/'], cwd='vendor_binaries')
+def dump_vendor_bin(serial_id, su_exec):
+    if su_exec:
+        run_command(['adb', '-s', serial_id, 'shell', 'su', '-c', 'cp', '-r', '/vendor/bin/', '/sdcard/.dump/vendor/'])
+        run_command(['adb', '-s', serial_id, 'pull', '/sdcard/.dump/vendor/bin/'], cwd='vendor_binaries')
+    else:
+        run_command(['adb', '-s', serial_id, 'pull', '/vendor/bin/'], cwd='vendor_binaries')
 
 def dump_selinux_policy(serial_id):
     run_command(['adb', '-s', serial_id, 'pull', '/sys/fs/selinux/policy'], cwd='selinux')
@@ -170,6 +202,8 @@ def get_packages(serial_id):
             path = line[:line.rindex('=')]
             package_name = line[line.rindex('=') + 1:line.rindex(' ')]
             uid = line[line.rindex(' ') + 1:].strip('uid:')
+            if ',' in uid:
+                uid = uid.split(',')[0]
             package_info = {}
             package_info['package_name'] = package_name
             package_info['path'] = path
@@ -238,15 +272,22 @@ def main():
     if not is_info_only:
         Log.info('[Task 6] Dump libraries')
         os.mkdir('system_libs')
-        dump_system_lib(serial_id)
+
+        if su_exec:
+            cmd_mkdir_sdcard_dump(serial_id)
+            cmd_mkdir_sdcard_dump_system(serial_id)
+            cmd_mkdir_sdcard_dump_vendor(serial_id)
+        dump_system_lib(serial_id, su_exec)
         os.mkdir('vendor_libs')
-        dump_vendor_lib(serial_id)
+        dump_vendor_lib(serial_id, su_exec)
 
         Log.info('[Task 7] Dump binaries')
         os.mkdir('system_binaries')
-        dump_system_bin(serial_id)
+        dump_system_bin(serial_id, su_exec)
         os.mkdir('vendor_binaries')
-        dump_vendor_bin(serial_id)
+        dump_vendor_bin(serial_id, su_exec)
 
+        if su_exec:
+            cmd_rm_sdcard_dump(serial_id)
 
 main()
