@@ -143,7 +143,6 @@ def scan_dir(packages_dir):
                         except Exception as e:
                             print('Scan file '+ file + ' error, ' + str(e))
                             continue
-    print(browsable_activities)
 
 if len(sys.argv) != 2:
     print('search_url_scheme.py: Missing parameters, usage: python search_url_scheme.py dir')
