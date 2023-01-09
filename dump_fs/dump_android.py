@@ -33,8 +33,14 @@ def cmd_adb_devices():
 def cmd_getprop_ro_build_fingerprint(serial_id):
     return run_command(['adb', '-s', serial_id, 'shell', 'getprop', 'ro.build.fingerprint'])
 
-def cmd_pm_list_packages(serial_id):
+def cmd_pm_list_packages_all(serial_id):
     return run_command(['adb', '-s', serial_id, 'shell', 'pm', 'list', 'packages', '-f', '-U'])
+
+def cmd_pm_list_packages_third(serial_id):
+    return run_command(['adb', '-s', serial_id, 'shell', 'pm', 'list', 'packages', '-f', '-3', '-U'])
+
+def cmd_pm_list_packages_system(serial_id):
+    return run_command(['adb', '-s', serial_id, 'shell', 'pm', 'list', 'packages', '-s', '-3', '-U'])
 
 def cmd_service_list(serial_id, su_exec):
     if su_exec:
@@ -147,7 +153,7 @@ def adb_devices():
             device_serial.append({'id': id, 'status': status, 'build_fingerprint': build_fingerprint, 'root_status': root_status})
     return device_serial
 
-def select_adb_devices():
+def select_adb_devices(pre_select_val):
     devices = adb_devices()
     i = 1
     Log.print('Select an adb device:')
@@ -157,7 +163,11 @@ def select_adb_devices():
         else:
             Log.print(str(i) + ' => ' + device['id'] + '\t' + device['status'])
         i = i + 1
-    select = int(input())
+    if pre_select_val == -1:
+        select = int(input())
+    else:
+        select = pre_select_val
+    Log.info('You select device on line '+str(select))
     if select > len(devices):
         Log.error('Out of range.')
         return None
@@ -189,13 +199,18 @@ def get_package_selinux_label(serial_id, package, platform_signature):
         return 'priv_app'
     return 'untrusted_app'
 
-def get_packages(serial_id):
-    platform_signature = get_platform_signature(serial_id)
-    pm_list_output = cmd_pm_list_packages(serial_id).decode('ascii')
+def get_packages(serial_id, pkg_filter_mode):
+    if pkg_filter_mode == 1:
+        pm_list_output = cmd_pm_list_packages_system(serial_id).decode('ascii')
+    elif pkg_filter_mode == 2:
+        pm_list_output = cmd_pm_list_packages_third(serial_id).decode('ascii')
+    else:
+        pm_list_output = cmd_pm_list_packages_all(serial_id).decode('ascii')
     lines = pm_list_output.split('\n')
     packages = []
     total = len(lines)
     i = 0
+    platform_signature = get_platform_signature(serial_id)
     for line in lines:
         line = line.strip().strip('package:')
         if '=' in line and ' ' in line:
@@ -224,17 +239,26 @@ def show_progress(now, total, msg):
 
 def main():
     is_info_only = False
-    if len(sys.argv) == 2 and sys.argv[1] == '--info-only':
-        is_info_only = True
-        Log.info('--info-only detected: do not dump apks, libraries and binaries.')
-    device_info = select_adb_devices()
+    pkg_filter_mode = 0
+    if len(sys.argv) >= 2:
+        if sys.argv[1] == '-i' or sys.argv[1] == '--info-only':
+            is_info_only = True
+            Log.info('-i or --info-only detected: will not dump apks, libraries and binaries.')
+        elif sys.argv[1] == '-s' or sys.argv[1] == '--system-app-only':
+            pkg_filter_mode = 1
+            Log.info('-s or --system-app-only detected: will only dump system packages.')
+        elif sys.argv[1] == '-3' or sys.argv[1] == '--third-party-only' :
+            pkg_filter_mode = 2
+            Log.info('-3 or --third-party-only detected: will only dump third party packages.')
+
+    device_info = select_adb_devices(-1)
     serial_id = device_info['id']
     root_status = device_info['root_status']
     su_exec = (root_status == 'su root')
 
     Log.info('[Task 1] Dump Android framework & Apps')
 
-    packages = get_packages(serial_id)
+    packages = get_packages(serial_id, pkg_filter_mode)
     os.mkdir('packages')
     package_index_file = open('package_index.csv', 'w')
     package_index_file.write('package_name,path,uid,label\n')
@@ -270,21 +294,21 @@ def main():
     netstat_file.close()
 
     if not is_info_only:
-        Log.info('[Task 6] Dump libraries')
         os.mkdir('system_libs')
-
+        os.mkdir('vendor_libs')
+        os.mkdir('system_binaries')
+        os.mkdir('vendor_binaries')
         if su_exec:
             cmd_mkdir_sdcard_dump(serial_id)
             cmd_mkdir_sdcard_dump_system(serial_id)
             cmd_mkdir_sdcard_dump_vendor(serial_id)
+        
+        Log.info('[Task 6] Dump libraries')
         dump_system_lib(serial_id, su_exec)
-        os.mkdir('vendor_libs')
         dump_vendor_lib(serial_id, su_exec)
 
         Log.info('[Task 7] Dump binaries')
-        os.mkdir('system_binaries')
         dump_system_bin(serial_id, su_exec)
-        os.mkdir('vendor_binaries')
         dump_vendor_bin(serial_id, su_exec)
 
         if su_exec:
