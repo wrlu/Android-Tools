@@ -40,7 +40,7 @@ def cmd_pm_list_packages_third(serial_id):
     return run_command(['adb', '-s', serial_id, 'shell', 'pm', 'list', 'packages', '-f', '-3', '-U'])
 
 def cmd_pm_list_packages_system(serial_id):
-    return run_command(['adb', '-s', serial_id, 'shell', 'pm', 'list', 'packages', '-s', '-3', '-U'])
+    return run_command(['adb', '-s', serial_id, 'shell', 'pm', 'list', 'packages', '-f', '-s', '-U'])
 
 def cmd_service_list(serial_id, su_exec):
     if su_exec:
