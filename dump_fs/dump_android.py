@@ -7,22 +7,18 @@ class Log:
     @staticmethod
     def send(msg):
         print('[Send] ' + msg)
-    
+
     @staticmethod
     def print(msg):
         print(msg)
 
     @staticmethod
-    def info(msg):
-        print('[Info] ' + msg)
-
-    @staticmethod
     def warn(msg):
-        print('\033[0;33m[Warning] ' + msg + '\033[0m')
+        print('\033[0;33m' + msg + '\033[0m')
 
     @staticmethod
     def error(msg):
-        print('\033[0;31m[Error] ' + msg + '\033[0m')
+        print('\033[0;31m' + msg + '\033[0m')
 
 def run_command(cmds, cwd='.'):
     return subprocess.Popen(cmds, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, cwd=cwd).communicate()[0]
@@ -60,11 +56,8 @@ def cmd_netstat_nlptu(serial_id, su_exec):
     else:
         return run_command(['adb', '-s', serial_id, 'shell', 'su', '-c', 'netstat', '-nlptu'])
 
-def cmd_pm_dump_signatures(serial_id, package_name):
-    return run_command(['adb', '-s', serial_id, 'shell', 'pm', 'dump', package_name, '|', 'grep', 'signatures:'])
-
-def cmd_pm_dump_flag_system(serial_id, package_name):
-    return run_command(['adb', '-s', serial_id, 'shell', 'pm', 'dump', package_name, '|', 'grep', 'FLAG_SYSTEM'])
+def cmd_dumpsys_package(serial_id, package_name):
+    return run_command(['adb', '-s', serial_id, 'shell', 'dumpsys', 'package', package_name])
 
 def cmd_adb_root(serial_id):
     return run_command(['adb', '-s', serial_id, 'root'])
@@ -167,32 +160,30 @@ def select_adb_devices(pre_select_val):
         select = int(input())
     else:
         select = pre_select_val
-    Log.info('You select device on line '+str(select))
+    Log.print('You select device on line '+str(select))
     if select > len(devices):
         Log.error('Out of range.')
         return None
     if devices[select - 1]['status'] != 'device':
         Log.warn('Device not avaliable, status is: ' + devices[select - 1]['status'])
+    elif devices[select - 1]['root_status'] != 'device':
+        Log.warn('Non-root device, can only dump less binaries & libraries due to permission issue.')
     return devices[select - 1]
 
-def is_privileged(package):
-    return 'priv-app' in package['path']
+def is_privileged(package_info):
+    return 'priv-app' in package_info['path']
 
-def get_package_signature(serial_id, package_name):
-    dump_output = cmd_pm_dump_signatures(serial_id, package_name).decode('ascii')
+def get_package_signature(dumpsys_package_output):
     pattern = r'signatures:\[([0-9a-fA-F, ]*)\]\,'
-    search_result = re.search(pattern, dump_output)
+    search_result = re.search(pattern, dumpsys_package_output.decode('utf8'))
     signature = search_result.group(1)
     return signature
 
-def get_platform_signature(serial_id):
-    return get_package_signature(serial_id, 'android')
-
-def get_package_selinux_label(serial_id, package, platform_signature):
-    if int(package['uid']) == 1000:
+def get_package_selinux_label(package_info, dumpsys_package_output, platform_signature):
+    if int(package_info['uid']) == 1000:
         return 'system_app'
-    is_platform = platform_signature in get_package_signature(serial_id, package['package_name'])
-    is_priv = is_privileged(package)
+    is_platform = platform_signature in get_package_signature(dumpsys_package_output)
+    is_priv = is_privileged(package_info)
     if is_platform:
         return 'platform_app'
     if is_priv:
@@ -210,7 +201,8 @@ def get_packages(serial_id, pkg_filter_mode):
     packages = []
     total = len(lines)
     i = 0
-    platform_signature = get_platform_signature(serial_id)
+    android_dumpsys_package_output = cmd_dumpsys_package(serial_id, 'android')
+    platform_signature = get_package_signature(android_dumpsys_package_output)
     for line in lines:
         line = line.strip().strip('package:')
         if '=' in line and ' ' in line:
@@ -219,11 +211,12 @@ def get_packages(serial_id, pkg_filter_mode):
             uid = line[line.rindex(' ') + 1:].strip('uid:')
             if ',' in uid:
                 uid = uid.split(',')[0]
+            package_dumpsys_package_output = cmd_dumpsys_package(serial_id, package_name)
             package_info = {}
             package_info['package_name'] = package_name
             package_info['path'] = path
             package_info['uid'] = uid
-            package_info['label'] = get_package_selinux_label(serial_id, package_info, platform_signature)
+            package_info['label'] = get_package_selinux_label(package_info, package_dumpsys_package_output, platform_signature)
             packages.append(package_info)
             show_progress(i, total, 'Collect package info for ' + package_name)
         i = i + 1
@@ -234,7 +227,7 @@ def show_progress(now, total, msg):
     if total == 0:
         return
     p = (now * 100) // total
-    Log.info(' {' + str(p) + '%' + '} ' + msg)
+    Log.print(' {' + str(p) + '%' + '} ' + msg)
 
 
 def main():
@@ -243,20 +236,20 @@ def main():
     if len(sys.argv) >= 2:
         if sys.argv[1] == '-i' or sys.argv[1] == '--info-only':
             is_info_only = True
-            Log.info('-i or --info-only detected: will not dump apks, libraries and binaries.')
+            Log.print('-i or --info-only detected: will not dump apks, libraries and binaries.')
         elif sys.argv[1] == '-s' or sys.argv[1] == '--system-app-only':
             pkg_filter_mode = 1
-            Log.info('-s or --system-app-only detected: will only dump system packages.')
+            Log.print('-s or --system-app-only detected: will only dump system packages.')
         elif sys.argv[1] == '-3' or sys.argv[1] == '--third-party-only' :
             pkg_filter_mode = 2
-            Log.info('-3 or --third-party-only detected: will only dump third party packages.')
+            Log.print('-3 or --third-party-only detected: will only dump third party packages.')
 
     device_info = select_adb_devices(-1)
     serial_id = device_info['id']
     root_status = device_info['root_status']
     su_exec = (root_status == 'su root')
 
-    Log.info('[Task 1] Dump Android framework & Apps')
+    Log.print('[Task 1] Dump Android framework & Apps')
 
     packages = get_packages(serial_id, pkg_filter_mode)
     os.mkdir('packages')
@@ -274,21 +267,21 @@ def main():
     
     package_index_file.close()
 
-    Log.info('[Task 2] Dump SELinux & seccomp policy')
+    Log.print('[Task 2] Dump SELinux & seccomp policy')
     os.mkdir('selinux')
     dump_selinux_policy(serial_id)
 
-    Log.info('[Task 3] Run service list cmd')
+    Log.print('[Task 3] Run service list cmd')
     service_list_file = open('service_list.txt', 'wb')
     service_list_file.write(cmd_service_list(serial_id, su_exec))
     service_list_file.close()
 
-    Log.info('[Task 4] Run lshal cmd')
+    Log.print('[Task 4] Run lshal cmd')
     lshal_file = open('lshal.txt', 'wb')
     lshal_file.write(cmd_lshal(serial_id, su_exec))
     lshal_file.close()
 
-    Log.info('[Task 5] Run netstat -nlptu cmd')
+    Log.print('[Task 5] Run netstat -nlptu cmd')
     netstat_file = open('netstat.txt', 'wb')
     netstat_file.write(cmd_netstat_nlptu(serial_id, su_exec))
     netstat_file.close()
@@ -303,11 +296,11 @@ def main():
             cmd_mkdir_sdcard_dump_system(serial_id)
             cmd_mkdir_sdcard_dump_vendor(serial_id)
         
-        Log.info('[Task 6] Dump libraries')
+        Log.print('[Task 6] Dump libraries')
         dump_system_lib(serial_id, su_exec)
         dump_vendor_lib(serial_id, su_exec)
 
-        Log.info('[Task 7] Dump binaries')
+        Log.print('[Task 7] Dump binaries')
         dump_system_bin(serial_id, su_exec)
         dump_vendor_bin(serial_id, su_exec)
 
