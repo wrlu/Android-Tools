@@ -12,32 +12,11 @@ def parse_android_manifest(apk_file, output_file):
 def get_android_name(element):
     return element.getAttribute('android:name')
 
-def get_android_protection_level(element):
-    return element.getAttribute('android:protectionLevel')
-
 def get_package_name(manifest):
     return manifest.getAttribute('package')
 
 def get_application(manifest):
     return manifest.getElementsByTagName('application')[0]
-
-def get_defined_permissions(manifest):
-    permissions = manifest.getElementsByTagName('permission')
-    permissions_name_level = []
-    for permission in permissions:
-        name = get_android_name(permission)
-        protection_level = get_android_protection_level(permission)
-        permissions_name_level.append({'name': name, 'protectionLevel': protection_level})
-    return permissions_name_level
-
-def get_uses_permissions(manifest):
-    uses_permissions = manifest.getElementsByTagName('uses-permission')
-    uses_permissions_name = []
-    for uses_permission in uses_permissions:
-        name = get_android_name(uses_permission)
-        uses_permissions_name.append(name)
-    return uses_permissions_name
-        
 
 def get_activities(application):
     return application.getElementsByTagName('activity')

@@ -63,19 +63,6 @@ def is_component_exported(component):
     else:
         return len(get_component_intent_filters(component)) != 0
 
-def is_browsable_category(category):
-    return get_android_name(category) == 'android.intent.category.BROWSABLE'
-
-def is_activity_browsable(activity):
-    if is_component_exported(activity):
-        intent_filters = get_component_intent_filters(activity)
-        for intent_filter in intent_filters:
-            categories = intent_filter.getElementsByTagName('category')
-            for category in categories:
-                if is_browsable_category(category):
-                    return True
-    return False
-
 def get_componment_permission(componment):
     return componment.getAttribute('android:permission')
 
@@ -170,12 +157,19 @@ def scan_dir(packages_dir):
     uses_permissions = []
 
     for package in os.listdir(packages_dir):
+        if 'auto_generated_rro_product' in package:
+            print('Skip auto_generated_rro_product folder: ' + package)
+            continue
         package_dir = packages_dir + os.sep + package
         if os.path.isdir(package_dir):
             for file in os.listdir(package_dir):
+                if 'auto_generated_rro_product' in file:
+                    print('Skip auto_generated_rro_product apk: ' + file)
+                    continue
                 if file.endswith('.apk'):
                     apk_file = package_dir + os.sep + file
                     if os.path.isfile(apk_file):
+                        print('Start analysis apk file: '+apk_file)
                         output_file = '/tmp/tmp_AndroidManifest.xml'
                         parse_android_manifest(apk_file, output_file)
                         try:
@@ -185,10 +179,11 @@ def scan_dir(packages_dir):
                         except Exception as e:
                             print('Scan file '+ file + ' error, ' + str(e))
                             continue
+    print('Start analysis undefined componment permissions...')
     undefined_componment_permissions = search_undefined_componment_permissions(componment_permissions, defined_permissions)
     for undefined_componment_permission in undefined_componment_permissions:
         print(undefined_componment_permission)
-
+    print('Finish!')
 if len(sys.argv) != 2:
     print('search_undefined_permission.py: Missing parameters, usage: python search_undefined_permission.py dir')
     sys.exit(1)
