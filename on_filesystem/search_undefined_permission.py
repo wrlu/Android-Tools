@@ -166,9 +166,13 @@ def scan_dir(packages_dir):
                 if 'auto_generated_rro_product' in file:
                     print('Skip auto_generated_rro_product apk: ' + file)
                     continue
+                if 'auto_generated_rro_product' in file:
+                    print('Skip auto_generated_rro_product apk: ' + file)
+                    continue
                 if file.endswith('.apk'):
                     apk_file = package_dir + os.sep + file
                     if os.path.isfile(apk_file):
+                        print('Start analysis apk file: '+apk_file)
                         print('Start analysis apk file: '+apk_file)
                         output_file = '/tmp/tmp_AndroidManifest.xml'
                         parse_android_manifest(apk_file, output_file)
@@ -195,6 +199,7 @@ def scan_dir(packages_dir):
     undefined_componment_permissions = search_undefined_componment_permissions(componment_permissions, defined_permissions)
     for undefined_componment_permission in undefined_componment_permissions:
         print(undefined_componment_permission)
+    print('Finish!')
     print('Finish!')
 if len(sys.argv) != 2:
     print('search_undefined_permission.py: Missing parameters, usage: python search_undefined_permission.py dir')
