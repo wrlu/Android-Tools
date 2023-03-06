@@ -129,6 +129,9 @@ def get_browsable_activities(xml_content):
 def scan_dir(packages_dir):
     browsable_activities = []
     for package in os.listdir(packages_dir):
+        if 'auto_generated_rro_product' in package:
+            print('Skip auto_generated_rro_product: ' + package)
+            continue
         package_dir = packages_dir + os.sep + package
         if os.path.isdir(package_dir):
             for file in os.listdir(package_dir):
@@ -143,8 +146,20 @@ def scan_dir(packages_dir):
                         except Exception as e:
                             print('Scan file '+ file + ' error, ' + str(e))
                             continue
+        elif package.endswith('.apk'):
+            apk_file = package_dir
+            if os.path.isfile(apk_file):
+                output_file = '/tmp/tmp_AndroidManifest.xml'
+                parse_android_manifest(apk_file, output_file)
+                try:
+                    tmp_result = get_browsable_activities(output_file)
+                    browsable_activities.append(tmp_result)
+                except Exception as e:
+                    print('Scan file '+ file + ' error, ' + str(e))
+                    continue
+
 
 if len(sys.argv) != 2:
-    print('search_url_scheme.py: Missing parameters, usage: python search_url_scheme.py dir')
+    print('search_deeplink.py: Missing parameters, usage: python search_deeplink.py dir')
     sys.exit(1)
 scan_dir(sys.argv[1])
