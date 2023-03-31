@@ -12,7 +12,10 @@ def run_command(cmds, cwd='.'):
     return subprocess.Popen(cmds, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, cwd=cwd).communicate()[0]
 
 def apksign_verify(apk_file):
-    return run_command(['apksigner.bat', 'verify', '--print-certs-pem', apk_file])
+    apksigner = 'apksigner'
+    if platform.system() == 'Windows':
+        apksigner = apksigner + '.bat'
+    return run_command([apksigner, 'verify', '--print-certs-pem', apk_file])
 
 def do_verify(apk_file):
     print(apk_file)
