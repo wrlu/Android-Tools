@@ -30,28 +30,28 @@ def cmd_getprop_ro_build_fingerprint(serial_id):
     return run_command(['adb', '-s', serial_id, 'shell', 'getprop', 'ro.build.fingerprint'])
 
 def cmd_pm_list_packages_all(serial_id):
-    return run_command(['adb', '-s', serial_id, 'shell', 'pm', 'list', 'packages', '-f', '-U'])
+    return run_command(['adb', '-s', serial_id, 'shell', 'pm', 'list', 'packages', '--user','0' , '-f', '-U'])
 
 def cmd_pm_list_packages_third(serial_id):
-    return run_command(['adb', '-s', serial_id, 'shell', 'pm', 'list', 'packages', '-f', '-3', '-U'])
+    return run_command(['adb', '-s', serial_id, 'shell', 'pm', 'list', 'packages', '--user','0' , '-f', '-3', '-U'])
 
 def cmd_pm_list_packages_system(serial_id):
-    return run_command(['adb', '-s', serial_id, 'shell', 'pm', 'list', 'packages', '-f', '-s', '-U'])
+    return run_command(['adb', '-s', serial_id, 'shell', 'pm', 'list', 'packages', '--user','0' , '-f', '-s', '-U'])
 
-def cmd_service_list(serial_id, su_exec):
-    if su_exec:
+def cmd_service_list(serial_id, root_status):
+    if root_status == 'su_root':
         return run_command(['adb', '-s', serial_id, 'shell', 'su', '-c', 'service', 'list'])
     else:
         return run_command(['adb', '-s', serial_id, 'shell', 'service', 'list'])
 
-def cmd_lshal(serial_id, su_exec):
-    if su_exec:
+def cmd_lshal(serial_id, root_status):
+    if root_status == 'su_root':
         return run_command(['adb', '-s', serial_id, 'shell', 'su', '-c', 'lshal'])
     else:
         return run_command(['adb', '-s', serial_id, 'shell', 'lshal'])
 
-def cmd_netstat_nlptu(serial_id, su_exec):
-    if su_exec:
+def cmd_netstat_nlptu(serial_id, root_status):
+    if root_status == 'su_root':
         return run_command(['adb', '-s', serial_id, 'shell', 'su', '-c', 'netstat', '-nlptu'])
     else:
         return run_command(['adb', '-s', serial_id, 'shell', 'su', '-c', 'netstat', '-nlptu'])
@@ -83,39 +83,18 @@ def cmd_rm_sdcard_dump(serial_id):
 def dump_apk_folder(serial_id, package):
     run_command(['adb', '-s', serial_id, 'pull', package['path'][:package['path'].rindex('/')], package['package_name']], cwd='packages')
 
-def dump_system_lib(serial_id, su_exec):
-    if su_exec:
-        run_command(['adb', '-s', serial_id, 'shell', 'su', '-c', 'cp', '-r', '/system/lib64/', '/sdcard/.dump/system/'])
-        run_command(['adb', '-s', serial_id, 'shell', 'su', '-c', 'cp', '-r', '/system/lib/', '/sdcard/.dump/system/'])
-        run_command(['adb', '-s', serial_id, 'pull', '/sdcard/.dump/system/lib64/'], cwd='system_libs')
-        run_command(['adb', '-s', serial_id, 'pull', '/sdcard/.dump/system/lib/'], cwd='system_libs')
+def dump_binary_folder(serial_id, binary_path, partition, cwd, root_status):
+    if root_status == 'adb_root':
+        dump_binary_folder_directly(serial_id, binary_path, cwd)
     else:
-        run_command(['adb', '-s', serial_id, 'pull', '/system/lib64/'], cwd='system_libs')
-        run_command(['adb', '-s', serial_id, 'pull', '/system/lib/'], cwd='system_libs')
-    
-def dump_vendor_lib(serial_id, su_exec):
-    if su_exec:
-        run_command(['adb', '-s', serial_id, 'shell', 'su', '-c', 'cp', '-r', '/vendor/lib64/', '/sdcard/.dump/vendor/'])
-        run_command(['adb', '-s', serial_id, 'shell', 'su', '-c', 'cp', '-r', '/vendor/lib/', '/sdcard/.dump/vendor/'])
-        run_command(['adb', '-s', serial_id, 'pull', '/sdcard/.dump/vendor/lib64/'], cwd='vendor_libs')
-        run_command(['adb', '-s', serial_id, 'pull', '/sdcard/.dump/vendor/lib/'], cwd='vendor_libs')
-    else:
-        run_command(['adb', '-s', serial_id, 'pull', '/vendor/lib64/'], cwd='vendor_libs')
-        run_command(['adb', '-s', serial_id, 'pull', '/vendor/lib/'], cwd='vendor_libs')
+        if root_status == 'su_root':
+            run_command(['adb', '-s', serial_id, 'shell', 'su', '-c', 'cp', '-r', binary_path, os.path.join('/sdcard/.dump/', partition)])
+        else:
+            run_command(['adb', '-s', serial_id, 'shell', 'cp', '-r', binary_path, os.path.join('/sdcard/.dump/', partition)])
+        run_command(['adb', '-s', serial_id, 'pull', os.path.join('/sdcard/.dump/', binary_path[1:])], cwd=cwd)
 
-def dump_system_bin(serial_id, su_exec):
-    if su_exec:
-        run_command(['adb', '-s', serial_id, 'shell', 'su', '-c', 'cp', '-r', '/system/bin/', '/sdcard/.dump/system/'])
-        run_command(['adb', '-s', serial_id, 'pull', '/sdcard/.dump/system/bin/'], cwd='system_binaries')
-    else:
-        run_command(['adb', '-s', serial_id, 'pull', '/system/bin/'], cwd='system_binaries')
-
-def dump_vendor_bin(serial_id, su_exec):
-    if su_exec:
-        run_command(['adb', '-s', serial_id, 'shell', 'su', '-c', 'cp', '-r', '/vendor/bin/', '/sdcard/.dump/vendor/'])
-        run_command(['adb', '-s', serial_id, 'pull', '/sdcard/.dump/vendor/bin/'], cwd='vendor_binaries')
-    else:
-        run_command(['adb', '-s', serial_id, 'pull', '/vendor/bin/'], cwd='vendor_binaries')
+def dump_binary_folder_directly(serial_id, binary_path, cwd):
+    run_command(['adb', '-s', serial_id, 'pull', binary_path], cwd=cwd)
 
 def dump_selinux_policy(serial_id):
     run_command(['adb', '-s', serial_id, 'pull', '/sys/fs/selinux/policy'], cwd='selinux')
@@ -124,10 +103,10 @@ def get_adb_privilege_status(serial_id):
     cmd_adb_root(serial_id)
     whoami = cmd_whoami(serial_id).decode('ascii').strip()
     if whoami == 'root':
-        return 'adb root'
+        return 'adb_root'
     su_whoami = cmd_su_whoami(serial_id).decode('ascii').strip()
     if su_whoami == 'root':
-        return 'su root'
+        return 'su_root'
     else:
         return 'shell'
 
@@ -149,7 +128,7 @@ def adb_devices():
 def select_adb_devices(pre_select_val):
     devices = adb_devices()
     i = 1
-    Log.print('Select an adb device:')
+    Log.print('Please select an adb device:')
     for device in devices:
         if device['status'] == 'device':
             Log.print(str(i) + ' => ' + device['id'] + '\t' + device['build_fingerprint'] + '\t' + device['root_status'])
@@ -227,7 +206,7 @@ def show_progress(now, total, msg):
     if total == 0:
         return
     p = (now * 100) // total
-    Log.print(' {' + str(p) + '%' + '} ' + msg)
+    Log.print('[' + str(p) + '%' + '] ' + msg)
 
 
 def main():
@@ -247,12 +226,11 @@ def main():
     device_info = select_adb_devices(-1)
     serial_id = device_info['id']
     root_status = device_info['root_status']
-    su_exec = (root_status == 'su root')
 
     Log.print('[Task 1] Dump Android framework & Apps')
 
     packages = get_packages(serial_id, pkg_filter_mode)
-    os.mkdir('packages')
+    os.makedirs('packages', exist_ok=True)
     package_index_file = open('package_index.csv', 'w')
     package_index_file.write('package_name,path,uid,label\n')
     total = len(packages)
@@ -268,43 +246,47 @@ def main():
     package_index_file.close()
 
     Log.print('[Task 2] Dump SELinux & seccomp policy')
-    os.mkdir('selinux')
+    os.makedirs('selinux', exist_ok=True)
     dump_selinux_policy(serial_id)
 
     Log.print('[Task 3] Run service list cmd')
     service_list_file = open('service_list.txt', 'wb')
-    service_list_file.write(cmd_service_list(serial_id, su_exec))
+    service_list_file.write(cmd_service_list(serial_id, root_status))
     service_list_file.close()
 
     Log.print('[Task 4] Run lshal cmd')
     lshal_file = open('lshal.txt', 'wb')
-    lshal_file.write(cmd_lshal(serial_id, su_exec))
+    lshal_file.write(cmd_lshal(serial_id, root_status))
     lshal_file.close()
 
     Log.print('[Task 5] Run netstat -nlptu cmd')
     netstat_file = open('netstat.txt', 'wb')
-    netstat_file.write(cmd_netstat_nlptu(serial_id, su_exec))
+    netstat_file.write(cmd_netstat_nlptu(serial_id, root_status))
     netstat_file.close()
 
     if not is_info_only:
-        os.mkdir('system_libs')
-        os.mkdir('vendor_libs')
-        os.mkdir('system_binaries')
-        os.mkdir('vendor_binaries')
-        if su_exec:
+        os.makedirs('system_libs', exist_ok=True)
+        os.makedirs('vendor_libs', exist_ok=True)
+        os.makedirs('system_binaries', exist_ok=True)
+        os.makedirs('vendor_binaries', exist_ok=True)
+        if root_status != 'adb_root':
             cmd_mkdir_sdcard_dump(serial_id)
             cmd_mkdir_sdcard_dump_system(serial_id)
             cmd_mkdir_sdcard_dump_vendor(serial_id)
         
         Log.print('[Task 6] Dump libraries')
-        dump_system_lib(serial_id, su_exec)
-        dump_vendor_lib(serial_id, su_exec)
+        dump_binary_folder_directly(serial_id, '/system/lib64/', 'system_libs')
+        dump_binary_folder_directly(serial_id, '/system/lib/', 'system_libs')
+        dump_binary_folder(serial_id, '/vendor/lib64/', 'vendor', 'vendor_libs', root_status)
+        dump_binary_folder(serial_id, '/vendor/lib/', 'vendor', 'vendor_libs', root_status)
 
         Log.print('[Task 7] Dump binaries')
-        dump_system_bin(serial_id, su_exec)
-        dump_vendor_bin(serial_id, su_exec)
+        dump_binary_folder(serial_id, '/system/bin/', 'system', 'system_binaries', root_status)
+        dump_binary_folder(serial_id, '/vendor/bin/', 'vendor', 'vendor_binaries', root_status)
 
-        if su_exec:
+        if root_status != 'adb_root':
             cmd_rm_sdcard_dump(serial_id)
 
-main()
+if __name__ == '__main__':
+    main()
+    # test_dump_vendor()

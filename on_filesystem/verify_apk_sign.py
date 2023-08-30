@@ -20,12 +20,10 @@ def apksign_verify(apk_file):
 def do_verify(apk_file):
     print(apk_file)
     encoding = 'utf8'
-    lfchar = '\n'
     if platform.system() == 'Windows':
         encoding = 'gbk'
-        lfchar = '\r\n'
     
-    verify_output_lines = apksign_verify(apk_file).decode(encoding).split(lfchar)
+    verify_output_lines = apksign_verify(apk_file).decode(encoding).split(os.linesep)
     is_cert_line = False
     with open('.pubkey.pem', 'w') as cert_file:
         for line in verify_output_lines:
