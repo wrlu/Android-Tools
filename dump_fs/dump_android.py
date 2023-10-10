@@ -65,6 +65,9 @@ def cmd_adb_root(serial_id):
 def cmd_whoami(serial_id):
     return run_command(['adb', '-s', serial_id, 'shell', 'whoami'])
 
+def cmd_getprop(serial_id):
+    return run_command(['adb', '-s', serial_id, 'shell', 'getprop'])
+
 def cmd_su_whoami(serial_id):
     return run_command(['adb', '-s', serial_id, 'shell', 'su', '-c', 'whoami'])
 
@@ -249,20 +252,22 @@ def main():
     os.makedirs('selinux', exist_ok=True)
     dump_selinux_policy(serial_id)
 
-    Log.print('[Task 3] Run service list cmd')
+    Log.print('[Task 3] Run useful commands')
     service_list_file = open('service_list.txt', 'wb')
     service_list_file.write(cmd_service_list(serial_id, root_status))
     service_list_file.close()
 
-    Log.print('[Task 4] Run lshal cmd')
     lshal_file = open('lshal.txt', 'wb')
     lshal_file.write(cmd_lshal(serial_id, root_status))
     lshal_file.close()
 
-    Log.print('[Task 5] Run netstat -nlptu cmd')
     netstat_file = open('netstat.txt', 'wb')
     netstat_file.write(cmd_netstat_nlptu(serial_id, root_status))
     netstat_file.close()
+
+    getprop_file = open('getprop.txt', 'wb')
+    getprop_file.write(cmd_getprop(serial_id))
+    getprop_file.close()
 
     if not is_info_only:
         os.makedirs('system_libs', exist_ok=True)
@@ -274,13 +279,13 @@ def main():
             cmd_mkdir_sdcard_dump_system(serial_id)
             cmd_mkdir_sdcard_dump_vendor(serial_id)
         
-        Log.print('[Task 6] Dump libraries')
+        Log.print('[Task 4] Dump libraries')
         dump_binary_folder_directly(serial_id, '/system/lib64/', 'system_libs')
         dump_binary_folder_directly(serial_id, '/system/lib/', 'system_libs')
         dump_binary_folder(serial_id, '/vendor/lib64/', 'vendor', 'vendor_libs', root_status)
         dump_binary_folder(serial_id, '/vendor/lib/', 'vendor', 'vendor_libs', root_status)
 
-        Log.print('[Task 7] Dump binaries')
+        Log.print('[Task 5] Dump binaries')
         dump_binary_folder(serial_id, '/system/bin/', 'system', 'system_binaries', root_status)
         dump_binary_folder(serial_id, '/vendor/bin/', 'vendor', 'vendor_binaries', root_status)
 
