@@ -148,7 +148,7 @@ def select_adb_devices(pre_select_val):
         return None
     if devices[select - 1]['status'] != 'device':
         Log.warn('Device not avaliable, status is: ' + devices[select - 1]['status'])
-    elif devices[select - 1]['root_status'] != 'device':
+    elif devices[select - 1]['root_status'] == 'shell':
         Log.warn('Non-root device, can only dump less binaries & libraries due to permission issue.')
     return devices[select - 1]
 
