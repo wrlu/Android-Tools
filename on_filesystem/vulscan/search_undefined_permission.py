@@ -119,8 +119,12 @@ def collect_permission_info(xml_content):
             full_componment_name = package_name + '/' + get_android_name(broadcast_receiver)
             permission = get_componment_permission(broadcast_receiver)
             componment_permissions.append({'comp': full_componment_name, 'permission': permission})
-
-    return componment_permissions, defined_permissions, uses_permissions
+    result = {
+        "componment_permissions": componment_permissions,
+        "defined_permissions": defined_permissions,
+        "uses_permissions": uses_permissions
+    }
+    return result
 
 def search_undefined_componment_permissions(componment_permissions, defined_permissions):
     undefined_componment_permissions = []
@@ -151,6 +155,12 @@ def search_undefined_componment_permissions(componment_permissions, defined_perm
                 undefined_componment_permissions.append({'comp': componment_permission['comp'], 'writePermission': componment_permission['writePermission']})
     return undefined_componment_permissions
 
+def process_apk(apk_file):
+    print('Start analysis apk file: '+apk_file)
+    output_file = '/tmp/tmp_AndroidManifest.xml'
+    parse_android_manifest(apk_file, output_file)
+    return collect_permission_info(output_file)
+
 def scan_dir(packages_dir):
     componment_permissions = []
     defined_permissions = []
@@ -172,26 +182,21 @@ def scan_dir(packages_dir):
                 if file.endswith('.apk'):
                     apk_file = package_dir + os.sep + file
                     if os.path.isfile(apk_file):
-                        print('Start analysis apk file: '+apk_file)
-                        print('Start analysis apk file: '+apk_file)
-                        output_file = '/tmp/tmp_AndroidManifest.xml'
-                        parse_android_manifest(apk_file, output_file)
                         try:
-                            componment_permission, defined_permission, uses_permission = collect_permission_info(output_file)
-                            componment_permissions.extend(componment_permission)
-                            defined_permissions.extend(defined_permission)
+                            tmp_result = process_apk(apk_file)
+                            componment_permissions.extend(tmp_result['componment_permission'])
+                            defined_permissions.extend(tmp_result['defined_permission'])
                         except Exception as e:
                             print('Scan file '+ file + ' error, ' + str(e))
                             continue
+                        
         elif package.endswith('.apk'):
             apk_file = package_dir
             if os.path.isfile(apk_file):
-                output_file = '/tmp/tmp_AndroidManifest.xml'
-                parse_android_manifest(apk_file, output_file)
                 try:
-                    componment_permission, defined_permission, uses_permission = collect_permission_info(output_file)
-                    componment_permissions.extend(componment_permission)
-                    defined_permissions.extend(defined_permission)
+                    tmp_result = process_apk(apk_file)
+                    componment_permissions.extend(tmp_result['componment_permission'])
+                    defined_permissions.extend(tmp_result['defined_permission'])
                 except Exception as e:
                     print('Scan file '+ file + ' error, ' + str(e))
                     continue
@@ -199,7 +204,6 @@ def scan_dir(packages_dir):
     undefined_componment_permissions = search_undefined_componment_permissions(componment_permissions, defined_permissions)
     for undefined_componment_permission in undefined_componment_permissions:
         print(undefined_componment_permission)
-    print('Finish!')
     print('Finish!')
 if len(sys.argv) != 2:
     print('search_undefined_permission.py: Missing parameters, usage: python search_undefined_permission.py dir')

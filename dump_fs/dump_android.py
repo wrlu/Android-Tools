@@ -3,6 +3,8 @@ import sys
 import subprocess
 import re
 
+settings_table = ['global', 'system', 'secure']
+
 class Log:
     @staticmethod
     def send(msg):
@@ -82,6 +84,10 @@ def cmd_mkdir_sdcard_dump_vendor(serial_id):
 
 def cmd_rm_sdcard_dump(serial_id):
     run_command(['adb', '-s', serial_id, 'shell', 'rm', '-rf', '"/sdcard/.dump"'])
+
+def cmd_settings_list(serial_id, table):
+    if table in settings_table:
+        return run_command(['adb', '-s', serial_id, 'shell', 'settings', 'list', table])
 
 def dump_apk_folder(serial_id, package):
     run_command(['adb', '-s', serial_id, 'pull', package['path'][:package['path'].rindex('/')], package['package_name']], cwd='packages')
@@ -234,40 +240,38 @@ def main():
 
     packages = get_packages(serial_id, pkg_filter_mode)
     os.makedirs('packages', exist_ok=True)
-    package_index_file = open('package_index.csv', 'w')
-    package_index_file.write('package_name,path,uid,label\n')
-    total = len(packages)
-    i = 0
-    for package in packages:
-        package_index_file.write(package['package_name']+','+package['path']+','+package['uid']+','+package['label']+'\n')
-        package_index_file.flush()
-        if not is_info_only:
-            dump_apk_folder(serial_id, package)
-            show_progress(i, total, 'Dump package binaries for ' + package['package_name'])
-        i = i + 1
+    with open('package_index.csv', 'w') as f:
+        f.write('package_name,path,uid,label\n')
+        total = len(packages)
+        i = 0
+        for package in packages:
+            f.write(package['package_name']+','+package['path']+','+package['uid']+','+package['label']+'\n')
+            f.flush()
+            if not is_info_only:
+                dump_apk_folder(serial_id, package)
+                show_progress(i, total, 'Dump package binaries for ' + package['package_name'])
+            i = i + 1
     
-    package_index_file.close()
-
     Log.print('[Task 2] Dump SELinux & seccomp policy')
     os.makedirs('selinux', exist_ok=True)
     dump_selinux_policy(serial_id)
 
     Log.print('[Task 3] Run useful commands')
-    service_list_file = open('service_list.txt', 'wb')
-    service_list_file.write(cmd_service_list(serial_id, root_status))
-    service_list_file.close()
+    with open('service_list.txt', 'wb') as f:
+        f.write(cmd_service_list(serial_id, root_status))
+    
+    with open('lshal.txt', 'wb') as f:
+        f.write(cmd_lshal(serial_id, root_status))
 
-    lshal_file = open('lshal.txt', 'wb')
-    lshal_file.write(cmd_lshal(serial_id, root_status))
-    lshal_file.close()
+    with open('netstat.txt', 'wb') as f:
+        f.write(cmd_netstat_nlptu(serial_id, root_status))
 
-    netstat_file = open('netstat.txt', 'wb')
-    netstat_file.write(cmd_netstat_nlptu(serial_id, root_status))
-    netstat_file.close()
+    with open('getprop.txt', 'wb') as f:
+        f.write(cmd_getprop(serial_id))
 
-    getprop_file = open('getprop.txt', 'wb')
-    getprop_file.write(cmd_getprop(serial_id))
-    getprop_file.close()
+    for table in settings_table:
+        with open('settings_' + table + '.txt', 'wb') as f:
+            f.write(cmd_settings_list(serial_id, table))
 
     if not is_info_only:
         os.makedirs('system_libs', exist_ok=True)
@@ -292,6 +296,13 @@ def main():
         if root_status != 'adb_root':
             cmd_rm_sdcard_dump(serial_id)
 
+def test_settings_table():
+    device_info = select_adb_devices(-1)
+    serial_id = device_info['id']
+    for table in settings_table:
+        with open('settings_' + table + '.txt', 'wb') as f:
+            f.write(cmd_settings_list(serial_id, table))
+
 if __name__ == '__main__':
+    # test_settings_table()
     main()
-    # test_dump_vendor()

@@ -126,6 +126,12 @@ def get_browsable_activities(xml_content):
     
     return browsable_activities
 
+def process_apk(apk_file):
+    output_file = '/tmp/tmp_AndroidManifest.xml'
+    parse_android_manifest(apk_file, output_file)
+    return get_browsable_activities(output_file)
+                    
+
 def scan_dir(packages_dir):
     browsable_activities = []
     for package in os.listdir(packages_dir):
@@ -138,10 +144,8 @@ def scan_dir(packages_dir):
                 if file.endswith('.apk'):
                     apk_file = package_dir + os.sep + file
                     if os.path.isfile(apk_file):
-                        output_file = '/tmp/tmp_AndroidManifest.xml'
-                        parse_android_manifest(apk_file, output_file)
                         try:
-                            tmp_result = get_browsable_activities(output_file)
+                            tmp_result = process_apk(apk_file)
                             browsable_activities.append(tmp_result)
                         except Exception as e:
                             print('Scan file '+ file + ' error, ' + str(e))
@@ -149,13 +153,11 @@ def scan_dir(packages_dir):
         elif package.endswith('.apk'):
             apk_file = package_dir
             if os.path.isfile(apk_file):
-                output_file = '/tmp/tmp_AndroidManifest.xml'
-                parse_android_manifest(apk_file, output_file)
                 try:
-                    tmp_result = get_browsable_activities(output_file)
+                    tmp_result = process_apk(apk_file)
                     browsable_activities.append(tmp_result)
                 except Exception as e:
-                    print('Scan file '+ file + ' error, ' + str(e))
+                    print('Scan file '+ apk_file + ' error, ' + str(e))
                     continue
 
 
