@@ -296,13 +296,5 @@ def main():
         if root_status != 'adb_root':
             cmd_rm_sdcard_dump(serial_id)
 
-def test_settings_table():
-    device_info = select_adb_devices(-1)
-    serial_id = device_info['id']
-    for table in settings_table:
-        with open('settings_' + table + '.txt', 'wb') as f:
-            f.write(cmd_settings_list(serial_id, table))
-
 if __name__ == '__main__':
-    # test_settings_table()
     main()
