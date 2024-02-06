@@ -4,8 +4,6 @@ from androguard.core.bytecodes.apk import APK
 from androguard.core.bytecodes.dvm import DalvikVMFormat
 
 def match_filter(str):
-    if 'com.heytap.cloud.action.SYNC_MODULE' in str:
-        return True
     return False
 
 def find_string_in_apk(apk_obj, file, matcher):
