@@ -157,19 +157,19 @@ def search_componment_permission_issues(componments, defined_permissions):
         'provider': [],
         'receiver': []
     }
-    no_pem_comps = {
+    unpriv_pem_comps = {
         'activity': [],
         'service': [],
         'provider': [],
         'receiver': []
     }
     for componment in componments:
-        no_priv_permission = {
+        unprivileged = {
             'writePermission': True,
             'readPermission': True,
             'permission': True
         }
-        not_defined = {
+        undefined = {
             'writePermission': True,
             'readPermission': True,
             'permission': True
@@ -180,37 +180,58 @@ def search_componment_permission_issues(componments, defined_permissions):
                 if pem_key_word in componment and componment[pem_key_word] != '':
                     for defined_permission in defined_permissions:
                         if defined_permission['name'] == componment[pem_key_word]:
-                            not_defined[pem_key_word] = False
+                            undefined[pem_key_word] = False
                             if is_permission_privileged(defined_permission):
-                                no_priv_permission[pem_key_word] = False
+                                unprivileged[pem_key_word] = False
                             break
-                    if not_defined[pem_key_word]:
-                        undef_pem_comps[componment['type']].append({
-                            'name': componment['name'],
-                            pem_key_word: componment[pem_key_word]
-                        })
-                        continue
-                if no_priv_permission[pem_key_word] and pem_key_word != 'permission':
-                    no_pem_comps[componment['type']].append({
-                        'name': componment['name'],
-                        pem_key_word: componment[pem_key_word]
-                    })
+                else:
+                    unprivileged[pem_key_word] = True
+                    undefined[pem_key_word] = False
+            # readPermission or writePermission undefined, and permission unprivileged or undefined.
+            # the undefined readPermission/writePermission is vulnerable.
+            if (unprivileged['permission'] or undefined['permission']) and (undefined['writePermission'] or undefined['readPermission']):
+                undef_pem_comps[componment['type']].append({
+                    'name': componment['name'],
+                    'writePermission': componment['writePermission'],
+                    'readPermission': componment['readPermission'],
+                    'permission': componment['permission'],
+                })
+            # permission undefined, and readPermission or writePermission unprivileged.
+            # the undefined permission is vulnerable.
+            elif undefined['permission'] and (unprivileged['readPermission'] or unprivileged['writePermission']):
+                undef_pem_comps[componment['type']].append({
+                    'name': componment['name'],
+                    'writePermission': componment['writePermission'],
+                    'readPermission': componment['readPermission'],
+                    'permission': componment['permission'],
+                })
+            # permission unprivileged, and readPermission or writePermission unprivileged.
+            # the unprivileged permission is vulnerable.
+            elif unprivileged['permission'] and (unprivileged['writePermission'] or unprivileged['readPermission']):
+                unpriv_pem_comps[componment['type']].append({
+                    'name': componment['name'],
+                    'writePermission': componment['writePermission'],
+                    'readPermission': componment['readPermission'],
+                    'permission': componment['permission'],
+                })
         else:
             if 'permission' in componment and componment['permission'] != '':
                 for defined_permission in defined_permissions:
                     if defined_permission['name'] == componment['permission']:
-                        not_defined['permission'] = False
+                        undefined['permission'] = False
                         if is_permission_privileged(defined_permission):
-                            no_priv_permission['permission'] = False
+                            unprivileged['permission'] = False
                         break
-                if not_defined['permission']:
-                    undef_pem_comps[componment['type']].append({
-                        'name': componment['name'],
-                        'permission': componment['permission']
-                    })
-                    continue
-            if no_priv_permission['permission']:
-                no_pem_comps[componment['type']].append({
+            else:
+                unprivileged['permission'] = True
+                undefined['permission'] = False
+            if undefined['permission']:
+                undef_pem_comps[componment['type']].append({
+                    'name': componment['name'],
+                    'permission': componment['permission']
+                })
+            elif unprivileged['permission']:
+                unpriv_pem_comps[componment['type']].append({
                     'name': componment['name'],
                     'permission': componment['permission']
                 })
@@ -218,9 +239,9 @@ def search_componment_permission_issues(componments, defined_permissions):
          with open('undef_pem_issues_' + comp_type + '.json', 'w') as f:
             f.write(json.dumps(undef_pem_comps[comp_type]))
     
-    for comp_type in no_pem_comps.keys():
-         with open('no_pem_issues_' + comp_type + '.json', 'w') as f:
-            f.write(json.dumps(no_pem_comps[comp_type]))
+    for comp_type in unpriv_pem_comps.keys():
+         with open('unpriv_pem_issues_' + comp_type + '.json', 'w') as f:
+            f.write(json.dumps(unpriv_pem_comps[comp_type]))
 
 def process_apk(apk_file):
     print('Start analysis apk file: '+apk_file)
