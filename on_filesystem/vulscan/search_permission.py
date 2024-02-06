@@ -174,7 +174,7 @@ def search_componment_permission_issues(componments, defined_permissions):
             'readPermission': True,
             'permission': True
         }
-        if componment['type'] == 'Provider':
+        if componment['type'] == 'provider':
             provider_pem_key_words = ['writePermission', 'readPermission', 'permission']
             for pem_key_word in provider_pem_key_words:
                 if pem_key_word in componment and componment[pem_key_word] != '':
