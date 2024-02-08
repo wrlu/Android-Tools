@@ -46,6 +46,14 @@ def get_uses_permissions(manifest):
         name = get_android_name(uses_permission)
         uses_permissions_name.append(name)
     return uses_permissions_name
+
+def get_protected_broadcast(manifest):
+    protected_broadcasts = manifest.getElementsByTagName('protected-broadcast')
+    protected_broadcast_name = []
+    for protected_broadcast in protected_broadcasts:
+        name = get_android_name(protected_broadcast)
+        protected_broadcast_name.append(name)
+    return protected_broadcast_name
         
 def get_activities(application):
     return application.getElementsByTagName('activity')
@@ -61,6 +69,18 @@ def get_broadcast_receivers(application):
 
 def get_component_intent_filters(component):
     return component.getElementsByTagName('intent-filter')
+
+def get_intent_filter_actions(intent_filter):
+    return intent_filter.getElementsByTagName('action')
+
+def get_all_action_names(component):
+    intent_filters = get_component_intent_filters(component)
+    action_names = []
+    for intent_filter in intent_filters:
+        actions = get_intent_filter_actions(intent_filter)
+        for action in actions:
+            action_names.append(get_android_name(action))
+    return action_names
 
 def is_component_exported(component):
     exported = component.getAttribute('android:exported')
@@ -88,6 +108,7 @@ def collect_permission_info(xml_content):
     application = get_application(manifest)
     defined_permissions = get_defined_permissions(manifest)
     uses_permissions = get_uses_permissions(manifest)
+    protected_broadcasts = get_protected_broadcast(manifest)
 
     if application == None:
         print('Cannot get application tag in ' + package_name)
@@ -138,19 +159,22 @@ def collect_permission_info(xml_content):
         if is_component_exported(receiver):
             full_componment_name = package_name + '/' + get_android_name(receiver)
             permission = get_componment_permission(receiver)
+            action_names = get_all_action_names(receiver)
             componments.append({
                 'name': full_componment_name,
                 'type': 'receiver',
+                'actions': action_names,
                 'permission': permission,
             })
     result = {
-        "componments": componments,
-        "defined_permissions": defined_permissions,
-        "uses_permissions": uses_permissions
+        'componments': componments,
+        'defined_permissions': defined_permissions,
+        'uses_permissions': uses_permissions,
+        'protected_broadcasts': protected_broadcasts
     }
     return result
 
-def search_componment_permission_issues(componments, defined_permissions):
+def search_componment_permission_issues(base_data):
     undef_pem_comps = {
         'activity': [],
         'service': [],
@@ -163,7 +187,7 @@ def search_componment_permission_issues(componments, defined_permissions):
         'provider': [],
         'receiver': []
     }
-    for componment in componments:
+    for componment in base_data['componments']:
         unprivileged = {
             'writePermission': True,
             'readPermission': True,
@@ -178,7 +202,7 @@ def search_componment_permission_issues(componments, defined_permissions):
             provider_pem_key_words = ['writePermission', 'readPermission', 'permission']
             for pem_key_word in provider_pem_key_words:
                 if pem_key_word in componment and componment[pem_key_word] != '':
-                    for defined_permission in defined_permissions:
+                    for defined_permission in base_data['defined_permissions']:
                         if defined_permission['name'] == componment[pem_key_word]:
                             undefined[pem_key_word] = False
                             if is_permission_privileged(defined_permission):
@@ -216,7 +240,7 @@ def search_componment_permission_issues(componments, defined_permissions):
                 })
         else:
             if 'permission' in componment and componment['permission'] != '':
-                for defined_permission in defined_permissions:
+                for defined_permission in base_data['defined_permissions']:
                     if defined_permission['name'] == componment['permission']:
                         undefined['permission'] = False
                         if is_permission_privileged(defined_permission):
@@ -225,6 +249,15 @@ def search_componment_permission_issues(componments, defined_permissions):
             else:
                 unprivileged['permission'] = True
                 undefined['permission'] = False
+            if componment['type'] == 'receiver':
+                has_unprotected_action = False
+                for action in componment['actions']:
+                    if action not in base_data['protected_broadcasts']:
+                        has_unprotected_action = True
+                        break
+                if has_unprotected_action == False:
+                    continue
+
             if undefined['permission']:
                 undef_pem_comps[componment['type']].append({
                     'name': componment['name'],
@@ -250,9 +283,12 @@ def process_apk(apk_file):
     return collect_permission_info(output_file)
 
 def scan_dir(packages_dir):
-    componments = []
-    defined_permissions = []
-    uses_permissions = []
+    base_data = {
+        'componments': [],
+        'defined_permissions': [],
+        'uses_permissions': [],
+        'protected_broadcasts': []
+    }
 
     for package in os.listdir(packages_dir):
         if 'auto_generated_rro_product' in package:
@@ -273,8 +309,10 @@ def scan_dir(packages_dir):
                         tmp_result = process_apk(apk_file)
                         if tmp_result == None:
                             continue
-                        componments.extend(tmp_result['componments'])
-                        defined_permissions.extend(tmp_result['defined_permissions'])
+                        base_data['componments'].extend(tmp_result['componments'])
+                        base_data['defined_permissions'].extend(tmp_result['defined_permissions'])
+                        base_data['uses_permissions'].extend(tmp_result['uses_permissions'])
+                        base_data['protected_broadcasts'].extend(tmp_result['protected_broadcasts'])
                         
         elif package.endswith('.apk'):
             apk_file = package_dir
@@ -282,10 +320,12 @@ def scan_dir(packages_dir):
                 tmp_result = process_apk(apk_file)
                 if tmp_result == None:
                     continue
-                componments.extend(tmp_result['componments'])
-                defined_permissions.extend(tmp_result['defined_permissions'])
+                base_data['componments'].extend(tmp_result['componments'])
+                base_data['defined_permissions'].extend(tmp_result['defined_permissions'])
+                base_data['uses_permissions'].extend(tmp_result['uses_permissions'])
+                base_data['protected_broadcasts'].extend(tmp_result['protected_broadcasts'])
     print('Start analysis undefined componment permissions...')
-    search_componment_permission_issues(componments, defined_permissions)
+    search_componment_permission_issues(base_data)
     print('Finish!')
 if len(sys.argv) != 2:
     print('search_permission.py: Missing parameters, usage: python search_permission.py dir')
