@@ -324,7 +324,7 @@ def scan_dir(packages_dir):
                 base_data['defined_permissions'].extend(tmp_result['defined_permissions'])
                 base_data['uses_permissions'].extend(tmp_result['uses_permissions'])
                 base_data['protected_broadcasts'].extend(tmp_result['protected_broadcasts'])
-    print('Start analysis undefined componment permissions...')
+    print('Start analysis componment permissions...')
     search_componment_permission_issues(base_data)
     print('Finish!')
 if len(sys.argv) != 2:

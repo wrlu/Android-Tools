@@ -2,6 +2,7 @@ import os
 import sys
 import subprocess
 import re
+import argparse
 
 settings_table = ['global', 'system', 'secure']
 
@@ -32,13 +33,16 @@ def cmd_getprop_ro_build_fingerprint(serial_id):
     return run_command(['adb', '-s', serial_id, 'shell', 'getprop', 'ro.build.fingerprint'])
 
 def cmd_pm_list_packages_all(serial_id):
-    return run_command(['adb', '-s', serial_id, 'shell', 'pm', 'list', 'packages', '--user','0' , '-f', '-U'])
+    return run_command(['adb', '-s', serial_id, 'shell', 'pm', 'list', 'packages', '--user', '0', '-f', '-U'])
 
 def cmd_pm_list_packages_third(serial_id):
-    return run_command(['adb', '-s', serial_id, 'shell', 'pm', 'list', 'packages', '--user','0' , '-f', '-3', '-U'])
+    return run_command(['adb', '-s', serial_id, 'shell', 'pm', 'list', 'packages', '--user', '0', '-f', '-3', '-U'])
 
 def cmd_pm_list_packages_system(serial_id):
-    return run_command(['adb', '-s', serial_id, 'shell', 'pm', 'list', 'packages', '--user','0' , '-f', '-s', '-U'])
+    return run_command(['adb', '-s', serial_id, 'shell', 'pm', 'list', 'packages', '--user', '0', '-f', '-s', '-U'])
+
+def cmd_pm_list_packages_apex_only(serial_id):
+    return run_command(['adb', '-s', serial_id, 'shell', 'pm', 'list', 'packages', '--user', '0', '-f', '--apex-only'])
 
 def cmd_service_list(serial_id, root_status):
     if root_status == 'su_root':
@@ -91,6 +95,13 @@ def cmd_settings_list(serial_id, table):
 
 def dump_apk_folder(serial_id, package):
     run_command(['adb', '-s', serial_id, 'pull', package['path'][:package['path'].rindex('/')], package['package_name']], cwd='packages')
+
+def dump_apex_folder(serial_id, apex):
+    # Original *.apex files.
+    # run_command(['adb', '-s', serial_id, 'pull', apex['path']], cwd='apex_files')
+    # Mounted apex path is /apex/{apex_name}, contains readable apex files.
+    mounted_apex_path = '/apex/' + apex['apex_name']
+    run_command(['adb', '-s', serial_id, 'pull', mounted_apex_path, apex['apex_name']], cwd='apex_mounted')
 
 def dump_binary_folder(serial_id, binary_path, partition, cwd, root_status):
     if root_status == 'adb_root':
@@ -208,8 +219,22 @@ def get_packages(serial_id, pkg_filter_mode):
             packages.append(package_info)
             show_progress(i, total, 'Collect package info for ' + package_name)
         i = i + 1
-            
     return packages
+
+def get_apex(serial_id):
+    pm_list_output = cmd_pm_list_packages_apex_only(serial_id).decode('ascii')
+    lines = pm_list_output.split('\n')
+    apexs = []
+    for line in lines:
+        line = line.strip().strip('package:')
+        if '=' in line:
+            path = line[:line.rindex('=')]
+            apex_name = line[line.rindex('=') + 1:]
+            apex_info = {}
+            apex_info['apex_name'] = apex_name
+            apex_info['path'] = path
+            apexs.append(apex_info)
+    return apexs
 
 def show_progress(now, total, msg):
     if total == 0:
@@ -219,18 +244,24 @@ def show_progress(now, total, msg):
 
 
 def main():
-    is_info_only = False
+    parser = argparse.ArgumentParser(description='Dump useful files from Android devices.')
+    parser.add_argument('-m', '--metadata', action='store_true', help='Dump metadata only without any binaries.')
+    exclusive_group = parser.add_mutually_exclusive_group()
+    exclusive_group.add_argument('-s', '--system', action='store_true', help='Only dump system packages.')
+    exclusive_group.add_argument('-3', '--third-party', action='store_true', help='Only dump third party packages.')
+    args = parser.parse_args()
+
+    metadata_only = args.metadata
+    is_system = args.system
+    is_third = args.third_party
+
     pkg_filter_mode = 0
-    if len(sys.argv) >= 2:
-        if sys.argv[1] == '-i' or sys.argv[1] == '--info-only':
-            is_info_only = True
-            Log.print('-i or --info-only detected: will not dump apks, libraries and binaries.')
-        elif sys.argv[1] == '-s' or sys.argv[1] == '--system-app-only':
-            pkg_filter_mode = 1
-            Log.print('-s or --system-app-only detected: will only dump system packages.')
-        elif sys.argv[1] == '-3' or sys.argv[1] == '--third-party-only' :
-            pkg_filter_mode = 2
-            Log.print('-3 or --third-party-only detected: will only dump third party packages.')
+    if is_system:
+        pkg_filter_mode = 1
+        Log.print('-s or --system: will only dump system packages.')
+    elif is_third:
+        pkg_filter_mode = 2
+        Log.print('-3 or --third-party detected: will only dump third party packages.')
 
     device_info = select_adb_devices(-1)
     serial_id = device_info['id']
@@ -247,10 +278,26 @@ def main():
         for package in packages:
             f.write(package['package_name']+','+package['path']+','+package['uid']+','+package['label']+'\n')
             f.flush()
-            if not is_info_only:
+            if not metadata_only:
                 dump_apk_folder(serial_id, package)
                 show_progress(i, total, 'Dump package binaries for ' + package['package_name'])
             i = i + 1
+    if pkg_filter_mode != 2:
+         apexs = get_apex(serial_id)
+         os.makedirs('apex_files', exist_ok=True)
+         os.makedirs('apex_mounted', exist_ok=True)
+         with open('apex_index.csv', 'w') as f:
+            f.write('apex_name,path\n')
+            total = len(apexs)
+            i = 0
+            for apex in apexs:
+                f.write(apex['apex_name']+','+apex['path']+'\n')
+                f.flush()
+                if not metadata_only:
+                    dump_apex_folder(serial_id, apex)
+                    show_progress(i, total, 'Dump apex binaries for ' + apex['apex_name'])
+                i = i + 1
+   
     
     Log.print('[Task 2] Dump SELinux & seccomp policy')
     os.makedirs('selinux', exist_ok=True)
@@ -273,7 +320,7 @@ def main():
         with open('settings_' + table + '.txt', 'wb') as f:
             f.write(cmd_settings_list(serial_id, table))
 
-    if not is_info_only:
+    if not metadata_only:
         os.makedirs('system_libs', exist_ok=True)
         os.makedirs('vendor_libs', exist_ok=True)
         os.makedirs('system_binaries', exist_ok=True)
