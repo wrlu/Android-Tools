@@ -1,5 +1,4 @@
 import os
-import sys
 import subprocess
 import re
 import argparse
@@ -97,8 +96,6 @@ def dump_apk_folder(serial_id, package):
     run_command(['adb', '-s', serial_id, 'pull', package['path'][:package['path'].rindex('/')], package['package_name']], cwd='packages')
 
 def dump_apex_folder(serial_id, apex):
-    # Original *.apex files.
-    # run_command(['adb', '-s', serial_id, 'pull', apex['path']], cwd='apex_files')
     # Mounted apex path is /apex/{apex_name}, contains readable apex files.
     mounted_apex_path = '/apex/' + apex['apex_name']
     run_command(['adb', '-s', serial_id, 'pull', mounted_apex_path, apex['apex_name']], cwd='apex_mounted')
@@ -283,10 +280,9 @@ def main():
                 show_progress(i, total, 'Dump package binaries for ' + package['package_name'])
             i = i + 1
     if pkg_filter_mode != 2:
-         apexs = get_apex(serial_id)
-         os.makedirs('apex_files', exist_ok=True)
-         os.makedirs('apex_mounted', exist_ok=True)
-         with open('apex_index.csv', 'w') as f:
+        apexs = get_apex(serial_id)
+        os.makedirs('apex_mounted', exist_ok=True)
+        with open('apex_index.csv', 'w') as f:
             f.write('apex_name,path\n')
             total = len(apexs)
             i = 0
