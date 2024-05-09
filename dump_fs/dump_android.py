@@ -98,7 +98,7 @@ def dump_apk_folder(serial_id, package):
 def dump_apex_folder(serial_id, apex):
     # Mounted apex path is /apex/{apex_name}, contains readable apex files.
     mounted_apex_path = '/apex/' + apex['apex_name']
-    run_command(['adb', '-s', serial_id, 'pull', mounted_apex_path, apex['apex_name']], cwd='apex_mounted')
+    run_command(['adb', '-s', serial_id, 'pull', mounted_apex_path, apex['apex_name']], cwd='apex')
 
 def dump_binary_folder(serial_id, binary_path, partition, cwd, root_status):
     if root_status == 'adb_root':
@@ -281,7 +281,7 @@ def main():
             i = i + 1
     if pkg_filter_mode != 2:
         apexs = get_apex(serial_id)
-        os.makedirs('apex_mounted', exist_ok=True)
+        os.makedirs('apex', exist_ok=True)
         with open('apex_index.csv', 'w') as f:
             f.write('apex_name,path\n')
             total = len(apexs)
