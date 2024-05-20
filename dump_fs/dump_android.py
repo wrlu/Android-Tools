@@ -293,6 +293,8 @@ def main():
                     dump_apex_folder(serial_id, apex)
                     show_progress(i, total, 'Dump apex binaries for ' + apex['apex_name'])
                 i = i + 1
+    else:
+        return
    
     
     Log.print('[Task 2] Dump SELinux & seccomp policy')
