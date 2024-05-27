@@ -1,6 +1,7 @@
 import os
 import sys
 import subprocess
+import tempfile
 from xml.dom import minidom
 
 def run_command(cmds, cwd='.'):
@@ -127,7 +128,7 @@ def get_browsable_activities(xml_content):
     return browsable_activities
 
 def process_apk(apk_file):
-    output_file = '/tmp/tmp_AndroidManifest.xml'
+    _, output_file = tempfile.mkstemp()
     parse_android_manifest(apk_file, output_file)
     return get_browsable_activities(output_file)
                     

@@ -1,8 +1,8 @@
 import os
 import sys
 import json
-from androguard.core.bytecodes.apk import APK
-from androguard.core.bytecodes.dvm import DalvikVMFormat
+from androguard.core.apk import APK
+from androguard.core.dex import DEX
 
 def match_content_filter(str):
     if str.startswith('content://'):
@@ -26,7 +26,7 @@ def match_content_filter(str):
 def find_string_in_apk(apk_obj, file, matcher):
     all_matched_strings = []
     for dex_bytes in apk_obj.get_all_dex():
-        dex_vm = DalvikVMFormat(dex_bytes)
+        dex_vm = DEX(dex_bytes)
         for str in dex_vm.get_strings():
             if matcher(str):
                 all_matched_strings.append({'string': str, 'file': file})
