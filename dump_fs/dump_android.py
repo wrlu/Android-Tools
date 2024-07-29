@@ -139,6 +139,9 @@ def adb_devices():
             if status == 'device':
                 build_fingerprint = cmd_getprop_ro_build_fingerprint(id).decode('ascii').strip()
                 root_status = get_adb_privilege_status(id)
+            else:
+                build_fingerprint = 'unknown'
+                root_status = 'unknown'
             device_serial.append({'id': id, 'status': status, 'build_fingerprint': build_fingerprint, 'root_status': root_status})
     return device_serial
 
@@ -162,7 +165,8 @@ def select_adb_devices(pre_select_val):
         return None
     if devices[select - 1]['status'] != 'device':
         Log.warn('Device not avaliable, status is: ' + devices[select - 1]['status'])
-    elif devices[select - 1]['root_status'] == 'shell':
+        return None
+    if devices[select - 1]['root_status'] == 'shell':
         Log.warn('Non-root device, can only dump less binaries & libraries due to permission issue.')
     return devices[select - 1]
 
@@ -261,6 +265,8 @@ def main():
         Log.print('-3 or --third-party detected: will only dump third party packages.')
 
     device_info = select_adb_devices(-1)
+    if device_info == None:
+        return
     serial_id = device_info['id']
     root_status = device_info['root_status']
 
