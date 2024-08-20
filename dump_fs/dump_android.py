@@ -93,7 +93,10 @@ def cmd_settings_list(serial_id, table):
         return run_command(['adb', '-s', serial_id, 'shell', 'settings', 'list', table])
 
 def dump_apk_folder(serial_id, package):
-    run_command(['adb', '-s', serial_id, 'pull', package['path'][:package['path'].rindex('/')], package['package_name']], cwd='packages')
+    apk_folder = package['path'][:package['path'].rindex('/')]
+    if package['package_name'] == 'com.miui.rom':
+        apk_folder = '/system_ext/framework'
+    run_command(['adb', '-s', serial_id, 'pull', apk_folder, package['package_name']], cwd='packages')
 
 def dump_apex_folder(serial_id, apex):
     # Mounted apex path is /apex/{apex_name}, contains readable apex files.
