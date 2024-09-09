@@ -76,17 +76,14 @@ def cmd_getprop(serial_id):
 def cmd_su_whoami(serial_id):
     return run_command(['adb', '-s', serial_id, 'shell', 'su', '-c', 'whoami'])
 
-def cmd_mkdir_sdcard_dump(serial_id):
-    run_command(['adb', '-s', serial_id, 'shell', 'mkdir', '/sdcard/.dump/'])
+def cmd_mkdir_dump_tmp(serial_id):
+    run_command(['adb', '-s', serial_id, 'shell', 'mkdir', '/sdcard/.dump_android_script/'])
 
-def cmd_mkdir_sdcard_dump_system(serial_id):
-    run_command(['adb', '-s', serial_id, 'shell', 'mkdir', '/sdcard/.dump/system/'])
+def cmd_mkdir_dump_tmp_subdir(serial_id, sub):
+    run_command(['adb', '-s', serial_id, 'shell', 'mkdir', '/sdcard/.dump_android_script/' + sub])
 
-def cmd_mkdir_sdcard_dump_vendor(serial_id):
-    run_command(['adb', '-s', serial_id, 'shell', 'mkdir', '/sdcard/.dump/vendor/'])
-
-def cmd_rm_sdcard_dump(serial_id):
-    run_command(['adb', '-s', serial_id, 'shell', 'rm', '-rf', '"/sdcard/.dump"'])
+def cmd_rm_dump_tmp(serial_id):
+    run_command(['adb', '-s', serial_id, 'shell', 'rm', '-rf', '"/sdcard/.dump_android_script"'])
 
 def cmd_settings_list(serial_id, table):
     if table in settings_table:
@@ -108,10 +105,10 @@ def dump_binary_folder(serial_id, binary_path, partition, cwd, root_status):
         dump_binary_folder_directly(serial_id, binary_path, cwd)
     else:
         if root_status == 'su_root':
-            run_command(['adb', '-s', serial_id, 'shell', 'su', '-c', 'cp', '-r', binary_path, os.path.join('/sdcard/.dump/', partition)])
+            run_command(['adb', '-s', serial_id, 'shell', 'su', '-c', 'cp', '-r', binary_path, os.path.join('/sdcard/.dump_android_script/', partition)])
         else:
-            run_command(['adb', '-s', serial_id, 'shell', 'cp', '-r', binary_path, os.path.join('/sdcard/.dump/', partition)])
-        run_command(['adb', '-s', serial_id, 'pull', os.path.join('/sdcard/.dump/', binary_path[1:])], cwd=cwd)
+            run_command(['adb', '-s', serial_id, 'shell', 'cp', '-r', binary_path, os.path.join('/sdcard/.dump_android_script/', partition)])
+        run_command(['adb', '-s', serial_id, 'pull', os.path.join('/sdcard/.dump_android_script/', binary_path[1:])], cwd=cwd)
 
 def dump_binary_folder_directly(serial_id, binary_path, cwd):
     run_command(['adb', '-s', serial_id, 'pull', binary_path], cwd=cwd)
@@ -333,9 +330,9 @@ def main():
         os.makedirs('system_binaries', exist_ok=True)
         os.makedirs('vendor_binaries', exist_ok=True)
         if root_status != 'adb_root':
-            cmd_mkdir_sdcard_dump(serial_id)
-            cmd_mkdir_sdcard_dump_system(serial_id)
-            cmd_mkdir_sdcard_dump_vendor(serial_id)
+            cmd_mkdir_dump_tmp(serial_id)
+            cmd_mkdir_dump_tmp_subdir(serial_id, 'system')
+            cmd_mkdir_dump_tmp_subdir(serial_id, 'vendor')
         
         Log.print('[Task 4] Dump libraries')
         dump_binary_folder_directly(serial_id, '/system/lib64/', 'system_libs')
@@ -348,7 +345,9 @@ def main():
         dump_binary_folder(serial_id, '/vendor/bin/', 'vendor', 'vendor_binaries', root_status)
 
         if root_status != 'adb_root':
-            cmd_rm_sdcard_dump(serial_id)
+            cmd_rm_dump_tmp(serial_id)
+        
+        Log.print('Done')
 
 if __name__ == '__main__':
     main()
