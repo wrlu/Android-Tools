@@ -2,6 +2,7 @@ import os
 import subprocess
 import re
 import argparse
+import platform
 
 settings_table = ['global', 'system', 'secure']
 
@@ -25,67 +26,67 @@ class Log:
 def run_command(cmds, cwd='.'):
     return subprocess.Popen(cmds, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, cwd=cwd).communicate()[0]
 
-def cmd_adb_devices():
+def adb_cmd_adb_devices():
     return run_command(['adb', 'devices'])
 
-def cmd_getprop_ro_build_fingerprint(serial_id):
+def adb_cmd_getprop_ro_build_fingerprint(serial_id):
     return run_command(['adb', '-s', serial_id, 'shell', 'getprop', 'ro.build.fingerprint'])
 
-def cmd_pm_list_packages_all(serial_id):
+def adb_cmd_pm_list_packages_all(serial_id):
     return run_command(['adb', '-s', serial_id, 'shell', 'pm', 'list', 'packages', '--user', '0', '-f', '-U'])
 
-def cmd_pm_list_packages_third(serial_id):
+def adb_cmd_pm_list_packages_third(serial_id):
     return run_command(['adb', '-s', serial_id, 'shell', 'pm', 'list', 'packages', '--user', '0', '-f', '-3', '-U'])
 
-def cmd_pm_list_packages_system(serial_id):
+def adb_cmd_pm_list_packages_system(serial_id):
     return run_command(['adb', '-s', serial_id, 'shell', 'pm', 'list', 'packages', '--user', '0', '-f', '-s', '-U'])
 
-def cmd_pm_list_packages_apex_only(serial_id):
+def adb_cmd_pm_list_packages_apex_only(serial_id):
     return run_command(['adb', '-s', serial_id, 'shell', 'pm', 'list', 'packages', '--user', '0', '-f', '--apex-only'])
 
-def cmd_service_list(serial_id, root_status):
+def adb_cmd_service_list(serial_id, root_status):
     if root_status == 'su_root':
         return run_command(['adb', '-s', serial_id, 'shell', 'su', '-c', 'service', 'list'])
     else:
         return run_command(['adb', '-s', serial_id, 'shell', 'service', 'list'])
 
-def cmd_lshal(serial_id, root_status):
+def adb_cmd_lshal(serial_id, root_status):
     if root_status == 'su_root':
         return run_command(['adb', '-s', serial_id, 'shell', 'su', '-c', 'lshal'])
     else:
         return run_command(['adb', '-s', serial_id, 'shell', 'lshal'])
 
-def cmd_netstat_nlptu(serial_id, root_status):
+def adb_cmd_netstat_nlptu(serial_id, root_status):
     if root_status == 'su_root':
         return run_command(['adb', '-s', serial_id, 'shell', 'su', '-c', 'netstat', '-nlptu'])
     else:
         return run_command(['adb', '-s', serial_id, 'shell', 'su', '-c', 'netstat', '-nlptu'])
 
-def cmd_dumpsys_package(serial_id, package_name):
+def adb_cmd_dumpsys_package(serial_id, package_name):
     return run_command(['adb', '-s', serial_id, 'shell', 'dumpsys', 'package', package_name])
 
-def cmd_adb_root(serial_id):
+def adb_cmd_adb_root(serial_id):
     return run_command(['adb', '-s', serial_id, 'root'])
 
-def cmd_whoami(serial_id):
+def adb_cmd_whoami(serial_id):
     return run_command(['adb', '-s', serial_id, 'shell', 'whoami'])
 
-def cmd_getprop(serial_id):
+def adb_cmd_getprop(serial_id):
     return run_command(['adb', '-s', serial_id, 'shell', 'getprop'])
 
-def cmd_su_whoami(serial_id):
+def adb_cmd_su_whoami(serial_id):
     return run_command(['adb', '-s', serial_id, 'shell', 'su', '-c', 'whoami'])
 
-def cmd_mkdir_dump_tmp(serial_id):
+def adb_cmd_mkdir_dump_tmp(serial_id):
     run_command(['adb', '-s', serial_id, 'shell', 'mkdir', '/sdcard/.dump_android_script/'])
 
-def cmd_mkdir_dump_tmp_subdir(serial_id, sub):
+def adb_cmd_mkdir_dump_tmp_subdir(serial_id, sub):
     run_command(['adb', '-s', serial_id, 'shell', 'mkdir', '/sdcard/.dump_android_script/' + sub])
 
-def cmd_rm_dump_tmp(serial_id):
+def adb_cmd_rm_dump_tmp(serial_id):
     run_command(['adb', '-s', serial_id, 'shell', 'rm', '-rf', '"/sdcard/.dump_android_script"'])
 
-def cmd_settings_list(serial_id, table):
+def adb_cmd_settings_list(serial_id, table):
     if table in settings_table:
         return run_command(['adb', '-s', serial_id, 'shell', 'settings', 'list', table])
 
@@ -115,20 +116,21 @@ def dump_binary_folder_directly(serial_id, binary_path, cwd):
 
 def dump_selinux_policy(serial_id):
     run_command(['adb', '-s', serial_id, 'pull', '/sys/fs/selinux/policy'], cwd='selinux')
+    run_command(['adb', '-s', serial_id, 'pull', '/system/etc/selinux'], cwd='selinux')
 
 def get_adb_privilege_status(serial_id):
-    cmd_adb_root(serial_id)
-    whoami = cmd_whoami(serial_id).decode('ascii').strip()
+    adb_cmd_adb_root(serial_id)
+    whoami = adb_cmd_whoami(serial_id).decode('ascii').strip()
     if whoami == 'root':
         return 'adb_root'
-    su_whoami = cmd_su_whoami(serial_id).decode('ascii').strip()
+    su_whoami = adb_cmd_su_whoami(serial_id).decode('ascii').strip()
     if su_whoami == 'root':
         return 'su_root'
     else:
         return 'shell'
 
 def adb_devices():
-    output = cmd_adb_devices().decode('ascii')
+    output = adb_cmd_adb_devices().decode('ascii')
     lines = output.split('\n')
     device_serial = []
     for line in lines:
@@ -137,7 +139,7 @@ def adb_devices():
             id = line.split('\t')[0]
             status = line.split('\t')[1]
             if status == 'device':
-                build_fingerprint = cmd_getprop_ro_build_fingerprint(id).decode('ascii').strip()
+                build_fingerprint = adb_cmd_getprop_ro_build_fingerprint(id).decode('ascii').strip()
                 root_status = get_adb_privilege_status(id)
             else:
                 build_fingerprint = 'unknown'
@@ -192,16 +194,16 @@ def get_package_selinux_label(package_info, dumpsys_package_output, platform_sig
 
 def get_packages(serial_id, pkg_filter_mode):
     if pkg_filter_mode == 1:
-        pm_list_output = cmd_pm_list_packages_system(serial_id).decode('ascii')
+        pm_list_output = adb_cmd_pm_list_packages_system(serial_id).decode('ascii')
     elif pkg_filter_mode == 2:
-        pm_list_output = cmd_pm_list_packages_third(serial_id).decode('ascii')
+        pm_list_output = adb_cmd_pm_list_packages_third(serial_id).decode('ascii')
     else:
-        pm_list_output = cmd_pm_list_packages_all(serial_id).decode('ascii')
+        pm_list_output = adb_cmd_pm_list_packages_all(serial_id).decode('ascii')
     lines = pm_list_output.split('\n')
     packages = []
     total = len(lines)
     i = 0
-    android_dumpsys_package_output = cmd_dumpsys_package(serial_id, 'android')
+    android_dumpsys_package_output = adb_cmd_dumpsys_package(serial_id, 'android')
     platform_signature = get_package_signature(android_dumpsys_package_output)
     for line in lines:
         line = line.strip().strip('package:')
@@ -211,7 +213,7 @@ def get_packages(serial_id, pkg_filter_mode):
             uid = line[line.rindex(' ') + 1:].strip('uid:')
             if ',' in uid:
                 uid = uid.split(',')[0]
-            package_dumpsys_package_output = cmd_dumpsys_package(serial_id, package_name)
+            package_dumpsys_package_output = adb_cmd_dumpsys_package(serial_id, package_name)
             package_info = {}
             package_info['package_name'] = package_name
             package_info['path'] = path
@@ -223,7 +225,7 @@ def get_packages(serial_id, pkg_filter_mode):
     return packages
 
 def get_apex(serial_id):
-    pm_list_output = cmd_pm_list_packages_apex_only(serial_id).decode('ascii')
+    pm_list_output = adb_cmd_pm_list_packages_apex_only(serial_id).decode('ascii')
     lines = pm_list_output.split('\n')
     apexs = []
     for line in lines:
@@ -242,7 +244,6 @@ def show_progress(now, total, msg):
         return
     p = (now * 100) // total
     Log.print('[' + str(p) + '%' + '] ' + msg)
-
 
 def main():
     parser = argparse.ArgumentParser(description='Dump useful files from Android devices.')
@@ -308,21 +309,22 @@ def main():
     dump_selinux_policy(serial_id)
 
     Log.print('[Task 3] Run useful commands')
+    service_list = adb_cmd_service_list(serial_id, root_status)
     with open('service_list.txt', 'wb') as f:
-        f.write(cmd_service_list(serial_id, root_status))
+        f.write(service_list)
     
     with open('lshal.txt', 'wb') as f:
-        f.write(cmd_lshal(serial_id, root_status))
+        f.write(adb_cmd_lshal(serial_id, root_status))
 
     with open('netstat.txt', 'wb') as f:
-        f.write(cmd_netstat_nlptu(serial_id, root_status))
+        f.write(adb_cmd_netstat_nlptu(serial_id, root_status))
 
     with open('getprop.txt', 'wb') as f:
-        f.write(cmd_getprop(serial_id))
+        f.write(adb_cmd_getprop(serial_id))
 
     for table in settings_table:
         with open('settings_' + table + '.txt', 'wb') as f:
-            f.write(cmd_settings_list(serial_id, table))
+            f.write(adb_cmd_settings_list(serial_id, table))
 
     if not metadata_only:
         os.makedirs('system_libs', exist_ok=True)
@@ -330,9 +332,9 @@ def main():
         os.makedirs('system_binaries', exist_ok=True)
         os.makedirs('vendor_binaries', exist_ok=True)
         if root_status != 'adb_root':
-            cmd_mkdir_dump_tmp(serial_id)
-            cmd_mkdir_dump_tmp_subdir(serial_id, 'system')
-            cmd_mkdir_dump_tmp_subdir(serial_id, 'vendor')
+            adb_cmd_mkdir_dump_tmp(serial_id)
+            adb_cmd_mkdir_dump_tmp_subdir(serial_id, 'system')
+            adb_cmd_mkdir_dump_tmp_subdir(serial_id, 'vendor')
         
         Log.print('[Task 4] Dump libraries')
         dump_binary_folder_directly(serial_id, '/system/lib64/', 'system_libs')
@@ -345,9 +347,12 @@ def main():
         dump_binary_folder(serial_id, '/vendor/bin/', 'vendor', 'vendor_binaries', root_status)
 
         if root_status != 'adb_root':
-            cmd_rm_dump_tmp(serial_id)
+            adb_cmd_rm_dump_tmp(serial_id)
+    
+    Log.print('[Task 4] Initial anaylsis')
+
         
-        Log.print('Done')
+    Log.print('Done')    
 
 if __name__ == '__main__':
     main()
