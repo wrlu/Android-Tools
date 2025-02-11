@@ -6,9 +6,9 @@ import platform
 def run_command(cmds, cwd='.'):
     return subprocess.Popen(cmds, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, cwd=cwd).communicate()[0]
 
-def host_cmd_sesearch_check_service(source, target, tclass, policy):
+def host_cmd_sesearch_check_service(source, target, tclass, perms, policy):
     if platform.system() == 'Windows':
-        return run_command(['wsl', '-e', 'sesearch', '-A', '-s', source, '-t', target, '-c', tclass, policy])
+        return run_command(['wsl', '-e', 'sesearch', '-A', '-s', source, '-t', target, '-c', tclass, '-p', perms, policy])
     else:
         return run_command(['sesearch', '-A', '-s', source, '-t', target, '-c', tclass, policy])
 
@@ -33,8 +33,8 @@ def untrusted_app_service_accessible_anaylsis():
     i = 1
     total = len(service_tag_mapping)
     for service, tag in service_tag_mapping.items():
-        result = host_cmd_sesearch_check_service('untrusted_app_all', tag,'service_manager', 'selinux/policy')
-        if b'allow' in result:
+        cmd_out = host_cmd_sesearch_check_service('untrusted_app_all', tag, 'service_manager', 'find', 'selinux/policy')
+        if b'allow' in cmd_out:
             show_progress(i, total, f"Allow access: {service}")
             accessible_services.append(service)
         i = i + 1
