@@ -41,11 +41,24 @@ def is_permission_privileged(defined_permission):
     if defined_permission['protectionLevel'] == '':
         return False
     protectionLevelInt = int(defined_permission['protectionLevel'], base=16)
-    if protectionLevelInt | 1000 == 1:
-        return False
-    if protectionLevelInt | 1 == 1:
-        return False
-    return True
+    # Only care with base permission types here, ignore the additional flags.
+    # signature
+    if protectionLevelInt & 0x2 == 0x2:
+        return True
+    # signatureOrSystem
+    # if protectionLevelInt & 0x3 == 0x3:
+    #     return True
+    # internal
+    if protectionLevelInt & 0x4 == 0x4:
+        print(str(defined_permission) + ": internal")
+        return True
+    # system
+    if protectionLevelInt & 0x10 == 0x10:
+        return True
+    # dangerous
+    # if protectionLevelInt & 0x1 == 0x1:
+    #     return False
+    return False
 
 def get_uses_permissions(manifest):
     uses_permissions = manifest.getElementsByTagName('uses-permission')
@@ -170,19 +183,27 @@ def collect_permission_info(xml_content):
             path_permission = []
             for path_permission_element in get_provider_path_permission(provider):
                 path = get_provider_path(path_permission_element)
-                path_prefix = get_provider_path_prefix(path_permission_element)
-                path_pattern = get_provider_path_pattern(path_permission_element)
+                pathPrefix = get_provider_path_prefix(path_permission_element)
+                pathPattern = get_provider_path_pattern(path_permission_element)
                 path_permission_def = get_componment_permission(path_permission_element)
-                path_read_permission = get_provider_read_permission(path_permission_element)
-                path_write_permission = get_provider_write_permission(path_permission_element)
-                path_permission.append({
-                    'path': path,
-                    'pathPrefix': path_prefix,
-                    'pathPattern': path_pattern,
-                    'permission': path_permission_def,
-                    'readPermission': path_read_permission,
-                    'writePermission': path_write_permission
-                })
+                path_readPermission = get_provider_read_permission(path_permission_element)
+                path_writePermission = get_provider_write_permission(path_permission_element)
+
+                per_path_permission = {}
+                if path != None and path != '':
+                    per_path_permission['path'] = path
+                if pathPrefix != None and pathPrefix != '':
+                    per_path_permission['pathPrefix'] = pathPrefix
+                if pathPattern != None and pathPattern != '':
+                    per_path_permission['pathPattern'] = pathPattern
+                if path_permission_def != None and path_permission_def != '':
+                    per_path_permission['permission'] = path_permission_def
+                if path_readPermission != None and path_readPermission != '':
+                    per_path_permission['readPermission'] = path_readPermission
+                if path_writePermission != None and path_writePermission != '':
+                    per_path_permission['writePermission'] = path_writePermission
+                
+                path_permission.append(per_path_permission)
                 
             componments.append({
                 'name': full_componment_name,
@@ -238,90 +259,119 @@ def search_componment_permission_issues(base_data):
         base_data_merge['protected_broadcasts'].extend(per_apk_data['protected_broadcasts'])
     
     for componment in base_data_merge['componments']:
-        unprivileged = {
-            'writePermission': True,
-            'readPermission': True,
-            'permission': True
+        status = {
+            'permission': 'blank',
+            'readPermission': 'blank',
+            'writePermission': 'blank',
         }
-        undefined = {
-            'writePermission': True,
-            'readPermission': True,
-            'permission': True
-        }
+
         # Provider has readPermission and writePermission, will use special check logic.
         if componment['type'] == 'provider':
             provider_pem_key_words = ['writePermission', 'readPermission', 'permission']
             for pem_key_word in provider_pem_key_words:
                 if pem_key_word in componment and componment[pem_key_word] != '':
+                    status[pem_key_word] = 'undefined'
                     for defined_permission in base_data_merge['defined_permissions']:
                         if defined_permission['name'] == componment[pem_key_word]:
-                            undefined[pem_key_word] = False
                             if is_permission_privileged(defined_permission):
-                                unprivileged[pem_key_word] = False
+                                status[pem_key_word] = 'privileged'
+                            else:
+                                status[pem_key_word] = 'unprivileged'
                             break
+                # If permission/readPermission/writePermission keep blank mean unprivileged.
                 else:
-                    unprivileged[pem_key_word] = True
-                    undefined[pem_key_word] = False
-
+                    status[pem_key_word] = 'unprivileged'
+            
+            if status['permission'] == 'unprivileged':
+                if status['writePermission'] == 'undefined' or status['readPermission'] == 'undefined':
+                    undef_pem_comps[componment['type']].append({
+                        'name': componment['name'],
+                        'writePermission': componment['writePermission'],
+                        'readPermission': componment['readPermission'],
+                        'permission': componment['permission'],
+                        'path_permission': componment['path_permission']
+                    })
+                    continue
+                if status['writePermission'] == 'unprivileged' or status['readPermission'] == 'unprivileged':
+                    unpriv_pem_comps[componment['type']].append({
+                        'name': componment['name'],
+                        'writePermission': componment['writePermission'],
+                        'readPermission': componment['readPermission'],
+                        'permission': componment['permission'],
+                        'path_permission': componment['path_permission']
+                    })
+                    continue
+            elif status['permission'] == 'undefined':
+                if status['writePermission'] == 'unprivileged' or status['readPermission'] == 'unprivileged':
+                    undef_pem_comps[componment['type']].append({
+                        'name': componment['name'],
+                        'writePermission': componment['writePermission'],
+                        'readPermission': componment['readPermission'],
+                        'permission': componment['permission'],
+                        'path_permission': componment['path_permission']
+                    })
+                    continue
+                if status['writePermission'] == 'undefined' or status['readPermission'] == 'undefined':
+                    undef_pem_comps[componment['type']].append({
+                        'name': componment['name'],
+                        'writePermission': componment['writePermission'],
+                        'readPermission': componment['readPermission'],
+                        'permission': componment['permission'],
+                        'path_permission': componment['path_permission']
+                    })
+                    continue
+            
             # Check path permission
             for per_path_permission in componment['path_permission']:
-                for pem_key_word in provider_pem_key_words:
-                    if pem_key_word in per_path_permission and per_path_permission[pem_key_word] != '':
+                found = False
+                for key in per_path_permission.keys():
+                    if (key == 'permission' or key == 'readPermission' or key == 'writePermission') and per_path_permission[key] != '':
+                        defined = False
+                        privileged = False
                         for defined_permission in base_data_merge['defined_permissions']:
-                            if defined_permission['name'] == per_path_permission[pem_key_word]:
-                                undefined[pem_key_word] = False
-                                if is_permission_privileged(defined_permission):
-                                    unprivileged[pem_key_word] = False
+                            if defined_permission['name'] == per_path_permission[key]:
+                                defined = True
+                                if not is_permission_privileged(defined_permission):
+                                    unpriv_pem_comps[componment['type']].append({
+                                        'name': componment['name'],
+                                        'writePermission': componment['writePermission'],
+                                        'readPermission': componment['readPermission'],
+                                        'permission': componment['permission'],
+                                        'path_permission': componment['path_permission']
+                                    })
+                                    privileged = False
+                                else:
+                                    privileged = True
                                 break
-                    else:
-                        unprivileged[pem_key_word] = True
-                        undefined[pem_key_word] = False
+                        if not defined:
+                            undef_pem_comps[componment['type']].append({
+                                'name': componment['name'],
+                                'writePermission': componment['writePermission'],
+                                'readPermission': componment['readPermission'],
+                                'permission': componment['permission'],
+                                'path_permission': componment['path_permission']
+                            })
+                        if not defined or not privileged:
+                            found = True
+                            break
+                if found:
+                    break
 
-
-            # readPermission or writePermission undefined, and permission unprivileged or undefined.
-            # the undefined readPermission/writePermission is vulnerable.
-            if (unprivileged['permission'] or undefined['permission']) and (undefined['writePermission'] or undefined['readPermission']):
-                undef_pem_comps[componment['type']].append({
-                    'name': componment['name'],
-                    'writePermission': componment['writePermission'],
-                    'readPermission': componment['readPermission'],
-                    'permission': componment['permission'],
-                    'path_permission': componment['path_permission']
-                })
-            # permission undefined, and readPermission or writePermission unprivileged.
-            # the undefined permission is vulnerable.
-            elif undefined['permission'] and (unprivileged['readPermission'] or unprivileged['writePermission']):
-                undef_pem_comps[componment['type']].append({
-                    'name': componment['name'],
-                    'writePermission': componment['writePermission'],
-                    'readPermission': componment['readPermission'],
-                    'permission': componment['permission'],
-                    'path_permission': componment['path_permission']
-                })
-            # permission unprivileged, and readPermission or writePermission unprivileged.
-            # the unprivileged permission is vulnerable.
-            elif unprivileged['permission'] and (unprivileged['writePermission'] or unprivileged['readPermission']):
-                unpriv_pem_comps[componment['type']].append({
-                    'name': componment['name'],
-                    'writePermission': componment['writePermission'],
-                    'readPermission': componment['readPermission'],
-                    'permission': componment['permission'],
-                    'path_permission': componment['path_permission']
-                })
         # Other componments only have permission, use normal logic.
         else:
             if 'permission' in componment and componment['permission'] != '':
+                status['permission'] = 'undefined'
                 for defined_permission in base_data_merge['defined_permissions']:
                     if defined_permission['name'] == componment['permission']:
-                        undefined['permission'] = False
                         if is_permission_privileged(defined_permission):
-                            unprivileged['permission'] = False
-                        break
+                            status['permission'] = 'privileged'
+                        else:
+                            status['permission'] = 'unprivileged'
             else:
-                unprivileged['permission'] = True
-                undefined['permission'] = False
+                status['permission'] = 'unprivileged'
+            
+            # Exported receiver should have an intent filter with unprotected action if is vulnerable. 
             if componment['type'] == 'receiver':
-                # Exported receiver should have an intent filter with unprotected action if is vulnerable. 
                 has_unprotected_action = False
                 for action in componment['actions']:
                     if action not in base_data_merge['protected_broadcasts']:
@@ -330,12 +380,12 @@ def search_componment_permission_issues(base_data):
                 if has_unprotected_action == False:
                     continue
 
-            if undefined['permission']:
+            if status['permission'] == 'undefined':
                 undef_pem_comps[componment['type']].append({
                     'name': componment['name'],
                     'permission': componment['permission']
                 })
-            elif unprivileged['permission']:
+            elif status['permission'] == 'unprivileged':
                 unpriv_pem_comps[componment['type']].append({
                     'name': componment['name'],
                     'permission': componment['permission']
@@ -409,9 +459,8 @@ def main():
             base_data = json.load(f)
     else:
         base_data = scan_dir(sys.argv[1] + os.sep + 'packages')
-    
-    with open(sys.argv[1] + os.sep + 'all_comp.json', 'w') as f:
-        f.write(json.dumps(base_data))
+        with open(sys.argv[1] + os.sep + 'all_comp.json', 'w') as f:
+            f.write(json.dumps(base_data))
     
     print('Start analysis componment permissions...')
     final_result = search_componment_permission_issues(base_data)
