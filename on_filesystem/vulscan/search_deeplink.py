@@ -162,7 +162,11 @@ def scan_dir(packages_dir):
                     continue
 
 
-if len(sys.argv) != 2:
-    print('search_deeplink.py: Missing parameters, usage: python search_deeplink.py dir')
-    sys.exit(1)
-scan_dir(sys.argv[1])
+def main():
+    if len(sys.argv) != 2:
+        print('search_deeplink.py: Missing parameters, usage: python search_deeplink.py dir')
+        sys.exit(1)
+    scan_dir(sys.argv[1] + os.sep + 'packages')
+
+if __name__ == '__main__':
+    main()

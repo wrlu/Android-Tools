@@ -103,7 +103,7 @@ def main():
     if len(sys.argv) != 2:
         print('search_auto_start.py: Missing parameters, usage: python search_auto_start.py dir')
         sys.exit(1)
-    scan_dir(sys.argv[1])
+    scan_dir(sys.argv[1] + os.sep + 'packages')
 
 if __name__ == '__main__':
     main()
