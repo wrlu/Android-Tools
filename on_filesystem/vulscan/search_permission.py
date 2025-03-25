@@ -50,7 +50,6 @@ def is_permission_privileged(defined_permission):
     #     return True
     # internal
     if protectionLevelInt & 0x4 == 0x4:
-        print(str(defined_permission) + ": internal")
         return True
     # system
     if protectionLevelInt & 0x10 == 0x10:
@@ -112,8 +111,8 @@ def is_component_exported(component):
     else:
         return len(get_component_intent_filters(component)) != 0
 
-def get_componment_permission(componment):
-    return componment.getAttribute('android:permission')
+def get_component_permission(component):
+    return component.getAttribute('android:permission')
 
 def get_provider_read_permission(provider):
     return provider.getAttribute('android:readPermission')
@@ -152,32 +151,42 @@ def collect_permission_info(xml_content):
     providers = get_content_providers(application)
     receivers = get_broadcast_receivers(application)
 
-    componments = []
+    components = []
     
     for activity in activities:
+        name = get_android_name(activity)
+        if name == '':
+            continue
         if is_component_exported(activity):
-            full_componment_name = package_name + '/' + get_android_name(activity)
-            permission = get_componment_permission(activity)
-            componments.append({
-                'name': full_componment_name,
+            full_component_name = package_name + '/' + name
+            permission = get_component_permission(activity)
+            components.append({
+                'name': full_component_name,
                 'type': 'activity',
                 'permission': permission,
             })
     
     for service in services:
+        name = get_android_name(service)
+        if name == '':
+            continue
         if is_component_exported(service):
-            full_componment_name = package_name + '/' + get_android_name(service)
-            permission = get_componment_permission(service)
-            componments.append({
-                'name': full_componment_name,
+            
+            full_component_name = package_name + '/' + name
+            permission = get_component_permission(service)
+            components.append({
+                'name': full_component_name,
                 'type': 'service',
                 'permission': permission,
             })
     
     for provider in providers:
+        name = get_android_name(provider)
+        if name == '':
+            continue
         if is_component_exported(provider):
-            full_componment_name = package_name + '/' + get_android_name(provider)
-            permission = get_componment_permission(provider)
+            full_component_name = package_name + '/' + name
+            permission = get_component_permission(provider)
             read_permission = get_provider_read_permission(provider)
             write_permission = get_provider_write_permission(provider)
             path_permission = []
@@ -185,7 +194,7 @@ def collect_permission_info(xml_content):
                 path = get_provider_path(path_permission_element)
                 pathPrefix = get_provider_path_prefix(path_permission_element)
                 pathPattern = get_provider_path_pattern(path_permission_element)
-                path_permission_def = get_componment_permission(path_permission_element)
+                path_permission_def = get_component_permission(path_permission_element)
                 path_readPermission = get_provider_read_permission(path_permission_element)
                 path_writePermission = get_provider_write_permission(path_permission_element)
 
@@ -205,8 +214,8 @@ def collect_permission_info(xml_content):
                 
                 path_permission.append(per_path_permission)
                 
-            componments.append({
-                'name': full_componment_name,
+            components.append({
+                'name': full_component_name,
                 'type': 'provider',
                 'permission': permission,
                 'readPermission': read_permission,
@@ -215,25 +224,28 @@ def collect_permission_info(xml_content):
             })
     
     for receiver in receivers:
+        name = get_android_name(receiver)
+        if name == '':
+            continue
         if is_component_exported(receiver):
-            full_componment_name = package_name + '/' + get_android_name(receiver)
-            permission = get_componment_permission(receiver)
+            full_component_name = package_name + '/' + name
+            permission = get_component_permission(receiver)
             action_names = get_all_action_names(receiver)
-            componments.append({
-                'name': full_componment_name,
+            components.append({
+                'name': full_component_name,
                 'type': 'receiver',
                 'actions': action_names,
                 'permission': permission,
             })
     result = {
-        'componments': componments,
+        'components': components,
         'defined_permissions': defined_permissions,
         'uses_permissions': uses_permissions,
         'protected_broadcasts': protected_broadcasts
     }
     return package_name, result
 
-def search_componment_permission_issues(base_data):
+def search_component_permission_issues(base_data):
     undef_pem_comps = {
         'activity': [],
         'service': [],
@@ -247,18 +259,18 @@ def search_componment_permission_issues(base_data):
         'receiver': []
     }
     base_data_merge = {
-        'componments': [],
+        'components': [],
         'defined_permissions': [],
         'uses_permissions': [],
         'protected_broadcasts': []
     }
     for per_apk_data in base_data:
-        base_data_merge['componments'].extend(per_apk_data['componments'])
+        base_data_merge['components'].extend(per_apk_data['components'])
         base_data_merge['defined_permissions'].extend(per_apk_data['defined_permissions'])
         base_data_merge['uses_permissions'].extend(per_apk_data['uses_permissions'])
         base_data_merge['protected_broadcasts'].extend(per_apk_data['protected_broadcasts'])
     
-    for componment in base_data_merge['componments']:
+    for component in base_data_merge['components']:
         status = {
             'permission': 'blank',
             'readPermission': 'blank',
@@ -266,13 +278,13 @@ def search_componment_permission_issues(base_data):
         }
 
         # Provider has readPermission and writePermission, will use special check logic.
-        if componment['type'] == 'provider':
+        if component['type'] == 'provider':
             provider_pem_key_words = ['writePermission', 'readPermission', 'permission']
             for pem_key_word in provider_pem_key_words:
-                if pem_key_word in componment and componment[pem_key_word] != '':
+                if pem_key_word in component and component[pem_key_word] != '':
                     status[pem_key_word] = 'undefined'
                     for defined_permission in base_data_merge['defined_permissions']:
-                        if defined_permission['name'] == componment[pem_key_word]:
+                        if defined_permission['name'] == component[pem_key_word]:
                             if is_permission_privileged(defined_permission):
                                 status[pem_key_word] = 'privileged'
                             else:
@@ -284,45 +296,45 @@ def search_componment_permission_issues(base_data):
             
             if status['permission'] == 'unprivileged':
                 if status['writePermission'] == 'undefined' or status['readPermission'] == 'undefined':
-                    undef_pem_comps[componment['type']].append({
-                        'name': componment['name'],
-                        'writePermission': componment['writePermission'],
-                        'readPermission': componment['readPermission'],
-                        'permission': componment['permission'],
-                        'path_permission': componment['path_permission']
+                    undef_pem_comps[component['type']].append({
+                        'name': component['name'],
+                        'writePermission': component['writePermission'],
+                        'readPermission': component['readPermission'],
+                        'permission': component['permission'],
+                        'path_permission': component['path_permission']
                     })
                     continue
                 if status['writePermission'] == 'unprivileged' or status['readPermission'] == 'unprivileged':
-                    unpriv_pem_comps[componment['type']].append({
-                        'name': componment['name'],
-                        'writePermission': componment['writePermission'],
-                        'readPermission': componment['readPermission'],
-                        'permission': componment['permission'],
-                        'path_permission': componment['path_permission']
+                    unpriv_pem_comps[component['type']].append({
+                        'name': component['name'],
+                        'writePermission': component['writePermission'],
+                        'readPermission': component['readPermission'],
+                        'permission': component['permission'],
+                        'path_permission': component['path_permission']
                     })
                     continue
             elif status['permission'] == 'undefined':
                 if status['writePermission'] == 'unprivileged' or status['readPermission'] == 'unprivileged':
-                    undef_pem_comps[componment['type']].append({
-                        'name': componment['name'],
-                        'writePermission': componment['writePermission'],
-                        'readPermission': componment['readPermission'],
-                        'permission': componment['permission'],
-                        'path_permission': componment['path_permission']
+                    undef_pem_comps[component['type']].append({
+                        'name': component['name'],
+                        'writePermission': component['writePermission'],
+                        'readPermission': component['readPermission'],
+                        'permission': component['permission'],
+                        'path_permission': component['path_permission']
                     })
                     continue
                 if status['writePermission'] == 'undefined' or status['readPermission'] == 'undefined':
-                    undef_pem_comps[componment['type']].append({
-                        'name': componment['name'],
-                        'writePermission': componment['writePermission'],
-                        'readPermission': componment['readPermission'],
-                        'permission': componment['permission'],
-                        'path_permission': componment['path_permission']
+                    undef_pem_comps[component['type']].append({
+                        'name': component['name'],
+                        'writePermission': component['writePermission'],
+                        'readPermission': component['readPermission'],
+                        'permission': component['permission'],
+                        'path_permission': component['path_permission']
                     })
                     continue
             
             # Check path permission
-            for per_path_permission in componment['path_permission']:
+            for per_path_permission in component['path_permission']:
                 found = False
                 for key in per_path_permission.keys():
                     if (key == 'permission' or key == 'readPermission' or key == 'writePermission') and per_path_permission[key] != '':
@@ -332,24 +344,24 @@ def search_componment_permission_issues(base_data):
                             if defined_permission['name'] == per_path_permission[key]:
                                 defined = True
                                 if not is_permission_privileged(defined_permission):
-                                    unpriv_pem_comps[componment['type']].append({
-                                        'name': componment['name'],
-                                        'writePermission': componment['writePermission'],
-                                        'readPermission': componment['readPermission'],
-                                        'permission': componment['permission'],
-                                        'path_permission': componment['path_permission']
+                                    unpriv_pem_comps[component['type']].append({
+                                        'name': component['name'],
+                                        'writePermission': component['writePermission'],
+                                        'readPermission': component['readPermission'],
+                                        'permission': component['permission'],
+                                        'path_permission': component['path_permission']
                                     })
                                     privileged = False
                                 else:
                                     privileged = True
                                 break
                         if not defined:
-                            undef_pem_comps[componment['type']].append({
-                                'name': componment['name'],
-                                'writePermission': componment['writePermission'],
-                                'readPermission': componment['readPermission'],
-                                'permission': componment['permission'],
-                                'path_permission': componment['path_permission']
+                            undef_pem_comps[component['type']].append({
+                                'name': component['name'],
+                                'writePermission': component['writePermission'],
+                                'readPermission': component['readPermission'],
+                                'permission': component['permission'],
+                                'path_permission': component['path_permission']
                             })
                         if not defined or not privileged:
                             found = True
@@ -357,12 +369,12 @@ def search_componment_permission_issues(base_data):
                 if found:
                     break
 
-        # Other componments only have permission, use normal logic.
+        # Other components only have permission, use normal logic.
         else:
-            if 'permission' in componment and componment['permission'] != '':
+            if 'permission' in component and component['permission'] != '':
                 status['permission'] = 'undefined'
                 for defined_permission in base_data_merge['defined_permissions']:
-                    if defined_permission['name'] == componment['permission']:
+                    if defined_permission['name'] == component['permission']:
                         if is_permission_privileged(defined_permission):
                             status['permission'] = 'privileged'
                         else:
@@ -371,9 +383,9 @@ def search_componment_permission_issues(base_data):
                 status['permission'] = 'unprivileged'
             
             # Exported receiver should have an intent filter with unprotected action if is vulnerable. 
-            if componment['type'] == 'receiver':
+            if component['type'] == 'receiver':
                 has_unprotected_action = False
-                for action in componment['actions']:
+                for action in component['actions']:
                     if action not in base_data_merge['protected_broadcasts']:
                         has_unprotected_action = True
                         break
@@ -381,14 +393,14 @@ def search_componment_permission_issues(base_data):
                     continue
 
             if status['permission'] == 'undefined':
-                undef_pem_comps[componment['type']].append({
-                    'name': componment['name'],
-                    'permission': componment['permission']
+                undef_pem_comps[component['type']].append({
+                    'name': component['name'],
+                    'permission': component['permission']
                 })
             elif status['permission'] == 'unprivileged':
-                unpriv_pem_comps[componment['type']].append({
-                    'name': componment['name'],
-                    'permission': componment['permission']
+                unpriv_pem_comps[component['type']].append({
+                    'name': component['name'],
+                    'permission': component['permission']
                 })
     final_result = {}
     final_result['undefined_permissions'] = undef_pem_comps
@@ -426,7 +438,7 @@ def scan_dir(packages_dir):
                         base_data.append({
                             'package': package_name,
                             'filename': apk_file,
-                            'componments': tmp_result['componments'],
+                            'components': tmp_result['components'],
                             'defined_permissions': tmp_result['defined_permissions'],
                             'uses_permissions': tmp_result['uses_permissions'],
                             'protected_broadcasts': tmp_result['protected_broadcasts'],
@@ -441,7 +453,7 @@ def scan_dir(packages_dir):
                 base_data.append({
                     'package': package_name,
                     'filename': apk_file,
-                    'componments': tmp_result['componments'],
+                    'components': tmp_result['components'],
                     'defined_permissions': tmp_result['defined_permissions'],
                     'uses_permissions': tmp_result['uses_permissions'],
                     'protected_broadcasts': tmp_result['protected_broadcasts'],
@@ -460,12 +472,12 @@ def main():
     else:
         base_data = scan_dir(sys.argv[1] + os.sep + 'packages')
         with open(sys.argv[1] + os.sep + 'all_comp.json', 'w') as f:
-            f.write(json.dumps(base_data))
+            json.dump(base_data, f)
     
-    print('Start analysis componment permissions...')
-    final_result = search_componment_permission_issues(base_data)
+    print('Start analysis component permissions...')
+    final_result = search_component_permission_issues(base_data)
     with open(sys.argv[1] + os.sep + 'accessible_comp.json', 'w') as f:
-        f.write(json.dumps(final_result))
+        json.dump(final_result, f)
 
     print('Finish!')
     
