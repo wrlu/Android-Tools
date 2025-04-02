@@ -131,7 +131,7 @@ def process_apk(apk_file):
     _, output_file = tempfile.mkstemp()
     parse_android_manifest(apk_file, output_file)
     return get_browsable_activities(output_file)
-                    
+
 
 def scan_dir(packages_dir):
     browsable_activities = []
@@ -142,24 +142,26 @@ def scan_dir(packages_dir):
         package_dir = packages_dir + os.sep + package
         if os.path.isdir(package_dir):
             for file in os.listdir(package_dir):
-                if file.endswith('.apk'):
-                    apk_file = package_dir + os.sep + file
-                    if os.path.isfile(apk_file):
-                        try:
-                            tmp_result = process_apk(apk_file)
-                            browsable_activities.append(tmp_result)
-                        except Exception as e:
-                            print('Scan file '+ file + ' error, ' + str(e))
-                            continue
-        elif package.endswith('.apk'):
-            apk_file = package_dir
-            if os.path.isfile(apk_file):
-                try:
-                    tmp_result = process_apk(apk_file)
-                    browsable_activities.append(tmp_result)
-                except Exception as e:
-                    print('Scan file '+ apk_file + ' error, ' + str(e))
+                if 'auto_generated_rro_product' in file:
+                    print('Skip auto_generated_rro_product apk: ' + file)
                     continue
+                full_filename = package_dir + os.sep + file
+                if os.path.isfile(full_filename) and file.endswith('.apk'):
+                    try:
+                        tmp_result = process_apk(full_filename)
+                        browsable_activities.append(tmp_result)
+                    except Exception as e:
+                        print('Scan file '+ file + ' error, ' + str(e))
+                        continue
+        elif os.path.isfile(package_dir) and package.endswith('.apk'):
+            apk_file = package_dir
+            try:
+                tmp_result = process_apk(apk_file)
+                browsable_activities.append(tmp_result)
+            except Exception as e:
+                print('Scan file '+ apk_file + ' error, ' + str(e))
+                continue
+                
 
 
 def main():

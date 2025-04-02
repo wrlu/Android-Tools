@@ -426,9 +426,6 @@ def scan_dir(packages_dir):
                 if 'auto_generated_rro_product' in file:
                     print('Skip auto_generated_rro_product apk: ' + file)
                     continue
-                if 'auto_generated_rro_product' in file:
-                    print('Skip auto_generated_rro_product apk: ' + file)
-                    continue
                 if file.endswith('.apk'):
                     apk_file = package_dir + os.sep + file
                     if os.path.isfile(apk_file):
@@ -444,20 +441,20 @@ def scan_dir(packages_dir):
                             'protected_broadcasts': tmp_result['protected_broadcasts'],
                         })
                         
-        elif package.endswith('.apk'):
+        elif os.path.isfile(package_dir) and package.endswith('.apk'):
             apk_file = package_dir
-            if os.path.isfile(apk_file):
-                package_name, tmp_result = process_apk(apk_file)
-                if tmp_result == None:
-                    continue
-                base_data.append({
-                    'package': package_name,
-                    'filename': apk_file,
-                    'components': tmp_result['components'],
-                    'defined_permissions': tmp_result['defined_permissions'],
-                    'uses_permissions': tmp_result['uses_permissions'],
-                    'protected_broadcasts': tmp_result['protected_broadcasts'],
-                })
+            package_name, tmp_result = process_apk(apk_file)
+            if tmp_result == None:
+                continue
+            base_data.append({
+                'package': package_name,
+                'filename': apk_file,
+                'components': tmp_result['components'],
+                'defined_permissions': tmp_result['defined_permissions'],
+                'uses_permissions': tmp_result['uses_permissions'],
+                'protected_broadcasts': tmp_result['protected_broadcasts'],
+            })
+                
     return base_data
 
 def main():

@@ -28,28 +28,29 @@ def scan_dir(packages_dir):
         package_dir = packages_dir + os.sep + package
         if os.path.isdir(package_dir):
             for file in os.listdir(package_dir):
-                if file.endswith('.apk') or file.endswith('.jar') or file.endswith('.dex'):
-                    apk_file = package_dir + os.sep + file
-                    if os.path.isfile(apk_file):
-                        try:
-                            result = process_apk(apk_file)
-                            if len(result) > 0:
-                                all_matched_strings = all_matched_strings + result
-                            print('Scan file success: '+ apk_file)
-                        except Exception as e:
-                            print('Scan file '+ apk_file + ' error, reason: ' + str(e))
-                            continue
-        elif package.endswith('.apk'):
-            apk_file = package_dir
-            if os.path.isfile(apk_file):
-                try:
-                    result = process_apk(apk_file)
-                    if len(result) > 0:
-                        all_matched_strings = all_matched_strings + result
-                    print('Scan file success: '+ apk_file)
-                except Exception as e:
-                    print('Scan file '+ apk_file + ' error, reason: ' + str(e))
+                if 'auto_generated_rro_product' in file:
+                    print('Skip auto_generated_rro_product apk: ' + file)
                     continue
+                full_filename = package_dir + os.sep + file
+                if os.path.isfile(full_filename) and (file.endswith('.apk') or file.endswith('.jar') or file.endswith('.dex')):
+                    try:
+                        result = process_apk(full_filename)
+                        if len(result) > 0:
+                            all_matched_strings = all_matched_strings + result
+                        print('Scan file success: '+ full_filename)
+                    except Exception as e:
+                        print('Scan file '+ full_filename + ' error, reason: ' + str(e))
+                        continue
+        elif os.path.isfile(package_dir) and package.endswith('.apk'):
+            apk_file = package_dir
+            try:
+                result = process_apk(apk_file)
+                if len(result) > 0:
+                    all_matched_strings = all_matched_strings + result
+                print('Scan file success: '+ apk_file)
+            except Exception as e:
+                print('Scan file '+ apk_file + ' error, reason: ' + str(e))
+                continue
     print(all_matched_strings)
 
 def main():
