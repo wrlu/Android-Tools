@@ -2,7 +2,8 @@ import os
 import subprocess
 import re
 import argparse
-import platform
+import copy
+import json
 
 settings_table = ['global', 'system', 'secure']
 
@@ -245,9 +246,36 @@ def show_progress(now, total, msg):
     p = (now * 100) // total
     Log.print('[' + str(p) + '%' + '] ' + msg)
 
+
+def gen_jadx_project_file(packages_dir):
+    jadx_file_templete = {
+        "projectVersion": 1,
+        "files": [],
+    }
+    for package in os.listdir(packages_dir):
+        if 'auto_generated_rro_product' in package:
+            print('Skip auto_generated_rro_product: ' + package)
+            continue
+        package_dir = packages_dir + os.sep + package
+        if os.path.isdir(package_dir):
+            jadx_file = package_dir + os.sep + package + ".jadx"
+            jadx_file_content = copy.deepcopy(jadx_file_templete)
+
+            for file in os.listdir(package_dir):
+                full_filename = package_dir + os.sep + file
+                if 'auto_generated_rro_product' in file:
+                    print('Skip auto_generated_rro_product apk: ' + file)
+                    continue
+                if os.path.isfile(full_filename) and (file.endswith('.apk') or file.endswith('.jar') or file.endswith('.dex')):
+                    jadx_file_content['files'].append(file)
+            
+            with open(jadx_file, 'w') as f:
+                json.dump(jadx_file_content, f)
+
 def main():
     parser = argparse.ArgumentParser(description='Dump useful files from Android devices.')
     parser.add_argument('-m', '--metadata', action='store_true', help='Dump metadata only without any binaries.')
+    parser.add_argument('-j', '--jadx', action='store_true', help='Generate jadx project files for every package.')
     exclusive_group = parser.add_mutually_exclusive_group()
     exclusive_group.add_argument('-s', '--system', action='store_true', help='Only dump system packages.')
     exclusive_group.add_argument('-3', '--third-party', action='store_true', help='Only dump third party packages.')
@@ -256,6 +284,7 @@ def main():
     metadata_only = args.metadata
     is_system = args.system
     is_third = args.third_party
+    gen_jadx = args.jadx
 
     pkg_filter_mode = 0
     if is_system:
@@ -286,6 +315,10 @@ def main():
                 dump_apk_folder(serial_id, package)
                 show_progress(i, total, 'Dump package binaries for ' + package['package_name'])
             i = i + 1
+    
+    if gen_jadx:
+        gen_jadx_project_file('packages')
+
     if pkg_filter_mode != 2:
         apexs = get_apex(serial_id)
         os.makedirs('apex', exist_ok=True)
