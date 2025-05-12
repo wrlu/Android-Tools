@@ -6,7 +6,8 @@ import tempfile
 from xml.dom import minidom
 
 def run_command(cmds, cwd='.'):
-    return subprocess.Popen(cmds, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, cwd=cwd).communicate()[0]
+    result = subprocess.run(cmds, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, cwd=cwd, check=False)
+    return result.stdout
 
 def parse_android_manifest(apk_file, output_file):
     return run_command(['androguard', 'axml', '-o', output_file, apk_file])
@@ -409,9 +410,18 @@ def search_component_permission_issues(base_data):
 
 def process_apk(apk_file):
     print('Start analysis apk file: '+apk_file)
-    _, output_file = tempfile.mkstemp()
-    parse_android_manifest(apk_file, output_file)
-    return collect_permission_info(output_file)
+    fd, output_file = tempfile.mkstemp()
+    try:
+        os.close(fd)
+        parse_android_manifest(apk_file, output_file)
+        result = collect_permission_info(output_file)
+        if result is None:
+            print(f"Failed to collect permission info for {apk_file}")
+            return None, None 
+        return result
+    finally:
+        # 删除临时文件
+        os.remove(output_file)
 
 def scan_dir(packages_dir):
     base_data = []
