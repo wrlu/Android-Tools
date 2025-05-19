@@ -25,7 +25,8 @@ class Log:
         print('\033[0;31m' + msg + '\033[0m')
 
 def run_command(cmds, cwd='.'):
-    return subprocess.Popen(cmds, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, cwd=cwd).communicate()[0]
+    result = subprocess.run(cmds, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, cwd=cwd, check=False)
+    return result.stdout
 
 def adb_cmd_adb_devices():
     return run_command(['adb', 'devices'])

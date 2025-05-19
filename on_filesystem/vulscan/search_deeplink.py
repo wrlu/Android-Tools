@@ -5,7 +5,8 @@ import tempfile
 from xml.dom import minidom
 
 def run_command(cmds, cwd='.'):
-    return subprocess.Popen(cmds, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, cwd=cwd).communicate()[0]
+    result = subprocess.run(cmds, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, cwd=cwd, check=False)
+    return result.stdout
 
 def parse_android_manifest(apk_file, output_file):
     return run_command(['androguard', 'axml', '-o', output_file, apk_file])

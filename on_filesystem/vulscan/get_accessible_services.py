@@ -4,7 +4,8 @@ import subprocess
 import platform
 
 def run_command(cmds, cwd='.'):
-    return subprocess.Popen(cmds, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, cwd=cwd).communicate()[0]
+    result = subprocess.run(cmds, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, cwd=cwd, check=False)
+    return result.stdout
 
 def host_cmd_sesearch_check_service(source, target, tclass, perms, policy):
     if platform.system() == 'Windows':
@@ -53,6 +54,8 @@ def main(workspace):
         for service in accessible_services:
             f.write(service)
             f.write('\n')
+        # For unknown reason no SELinux policy shows untrusted app can access window service, but it is accessible in real Android device.
+        f.write('window')
 
 if __name__ == '__main__':
     if len(sys.argv) != 2:
