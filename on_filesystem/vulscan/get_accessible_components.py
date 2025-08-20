@@ -145,7 +145,7 @@ def collect_permission_info(xml_content):
 
     if application == None:
         print('Cannot get application tag in ' + package_name)
-        return None
+        return package_name, None
 
     activities = get_activities(application)
     services = get_services(application)
