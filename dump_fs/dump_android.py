@@ -46,6 +46,9 @@ def adb_cmd_pm_list_packages_system(serial_id):
 def adb_cmd_pm_list_packages_apex_only(serial_id):
     return run_command(['adb', '-s', serial_id, 'shell', 'pm', 'list', 'packages', '--user', '0', '-f', '--apex-only'])
 
+def adb_cmd_pm_list_permissions(serial_id):
+    return run_command(['adb', '-s', serial_id, 'shell', 'pm', 'list', 'permissions', '-f'])
+
 def adb_cmd_service_list(serial_id, root_status):
     if root_status == 'su_root':
         return run_command(['adb', '-s', serial_id, 'shell', 'su', '-c', 'service', 'list'])
@@ -343,9 +346,8 @@ def main():
     dump_selinux_policy(serial_id)
 
     Log.print('[Task 3] Run useful commands')
-    service_list = adb_cmd_service_list(serial_id, root_status)
     with open('service_list.txt', 'wb') as f:
-        f.write(service_list)
+        f.write(adb_cmd_service_list(serial_id, root_status))
     
     with open('lshal.txt', 'wb') as f:
         f.write(adb_cmd_lshal(serial_id, root_status))
@@ -355,6 +357,9 @@ def main():
 
     with open('getprop.txt', 'wb') as f:
         f.write(adb_cmd_getprop(serial_id))
+    
+    with open('permissions.txt', 'wb') as f:
+        f.write(adb_cmd_pm_list_permissions(serial_id))
 
     for table in settings_table:
         with open('settings_' + table + '.txt', 'wb') as f:
