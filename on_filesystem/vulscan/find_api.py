@@ -9,7 +9,7 @@ def process_apk(apk_file, api_name):
         for method in dx.get_methods():
             if method.is_external():
                 continue
-            for _, called_method in method.get_xref_to():
+            for _, called_method, _ in method.get_xref_to():
                 if called_method.name == api_name:
                     print('Found API: ' + api_name + ' in apk: ' + apk_file)
                     return True
