@@ -297,6 +297,10 @@ def main():
     elif is_third:
         pkg_filter_mode = 2
         Log.print('-3 or --third-party detected: will only dump third party packages.')
+    if gen_jadx:
+        Log.print('-j or --jadx detected: will generate jadx project files.')
+    if metadata_only:
+        Log.print('-m or --metadata detected: will only dump metadata without any binaries.')
 
     device_info = select_adb_devices(-1)
     if device_info == None:
