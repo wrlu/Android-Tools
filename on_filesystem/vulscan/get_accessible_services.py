@@ -39,7 +39,7 @@ def untrusted_app_service_accessible_anaylsis():
 
         if 'allow' in allowlist:
             show_progress(i, total, f"Allow access: {service_name}: [{service_aidl}]")
-            accessible_service_tag_list.append(f"{service_name}: [{service_aidl}]")
+            accessible_service_tag_list.append(f"{service_name}: [{service_aidl}]\n")
         i = i + 1
     
     show_progress(i, total, "Done")
