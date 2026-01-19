@@ -1,0 +1,1 @@
+service call alarm 1 i32 -1 i32 0 i64 0 i64 0 i64 0 i32 0 i32 0 null i32 -1 i32 0 i32 1 i64 0 s16 'android.content.pm.PackageParser$Activity' i32 -1 i32 -1 i32 1 s16 'android.os.PooledStringWriter' i32 0
