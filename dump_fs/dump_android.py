@@ -67,9 +67,6 @@ def adb_cmd_netstat_nlptu(serial_id, root_status):
     else:
         return run_command(['adb', '-s', serial_id, 'shell', 'su', '-c', 'netstat', '-nlptu'])
 
-def adb_cmd_dumpsys_package(serial_id, package_name):
-    return run_command(['adb', '-s', serial_id, 'shell', 'dumpsys', 'package', package_name])
-
 def adb_cmd_adb_root(serial_id):
     return run_command(['adb', '-s', serial_id, 'root'])
 
@@ -177,26 +174,6 @@ def select_adb_devices(pre_select_val):
         Log.warn('Non-root device, can only dump less binaries & libraries due to permission issue.')
     return devices[select - 1]
 
-def is_privileged(package_info):
-    return 'priv-app' in package_info['path']
-
-def get_package_signature(dumpsys_package_output):
-    pattern = r'signatures:\[([0-9a-fA-F, ]*)\]\,'
-    search_result = re.search(pattern, dumpsys_package_output.decode('utf8'))
-    signature = search_result.group(1)
-    return signature
-
-def get_package_selinux_label(package_info, dumpsys_package_output, platform_signature):
-    if int(package_info['uid']) == 1000:
-        return 'system_app'
-    is_platform = platform_signature in get_package_signature(dumpsys_package_output)
-    is_priv = is_privileged(package_info)
-    if is_platform:
-        return 'platform_app'
-    if is_priv:
-        return 'priv_app'
-    return 'untrusted_app'
-
 def get_packages(serial_id, pkg_filter_mode):
     if pkg_filter_mode == 1:
         pm_list_output = adb_cmd_pm_list_packages_system(serial_id).decode('ascii')
@@ -208,8 +185,6 @@ def get_packages(serial_id, pkg_filter_mode):
     packages = []
     total = len(lines)
     i = 0
-    android_dumpsys_package_output = adb_cmd_dumpsys_package(serial_id, 'android')
-    platform_signature = get_package_signature(android_dumpsys_package_output)
     for line in lines:
         line = line.strip().strip('package:')
         if '=' in line and ' ' in line:
@@ -218,14 +193,11 @@ def get_packages(serial_id, pkg_filter_mode):
             uid = line[line.rindex(' ') + 1:].strip('uid:')
             if ',' in uid:
                 uid = uid.split(',')[0]
-            package_dumpsys_package_output = adb_cmd_dumpsys_package(serial_id, package_name)
             package_info = {}
             package_info['package_name'] = package_name
             package_info['path'] = path
             package_info['uid'] = uid
-            package_info['label'] = get_package_selinux_label(package_info, package_dumpsys_package_output, platform_signature)
             packages.append(package_info)
-            show_progress(i, total, 'Collect package info for ' + package_name)
         i = i + 1
     return packages
 
@@ -249,7 +221,6 @@ def show_progress(now, total, msg):
         return
     p = (now * 100) // total
     Log.print('[' + str(p) + '%' + '] ' + msg)
-
 
 def gen_jadx_project_file(packages_dir):
     jadx_file_templete = {
@@ -313,11 +284,11 @@ def main():
     packages = get_packages(serial_id, pkg_filter_mode)
     os.makedirs('packages', exist_ok=True)
     with open('package_index.csv', 'w') as f:
-        f.write('package_name,path,uid,label\n')
+        f.write('package_name,path,uid\n')
         total = len(packages)
         i = 0
         for package in packages:
-            f.write(package['package_name']+','+package['path']+','+package['uid']+','+package['label']+'\n')
+            f.write(package['package_name']+','+package['path']+','+package['uid']+'\n')
             f.flush()
             if not metadata_only:
                 dump_apk_folder(serial_id, package)
